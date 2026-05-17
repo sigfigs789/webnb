@@ -1,42 +1,284 @@
-#root {
-  max-width: 1280px;
+/* ── Layout ─────────────────────────────────────────── */
+.app {
+  min-height: 100vh;
+  background: #f5f6fa;
+}
+
+.app-header {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1rem 2rem;
+}
+
+.app-header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1a202c;
+  letter-spacing: -0.02em;
+}
+
+.app-main {
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .card {
-  padding: 2em;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  padding: 1.5rem;
 }
 
-.read-the-docs {
-  color: #888;
+/* ── Tab nav ─────────────────────────────────────────── */
+.tab-nav {
+  display: flex;
+  gap: 0;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0 2rem;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 0.875rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #718096;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+
+.tab-btn:hover {
+  color: #2d3748;
+  background: none;
+}
+
+.tab-btn--active {
+  color: #4f7ef8;
+  border-bottom-color: #4f7ef8;
+  font-weight: 600;
+}
+
+/* ── Booking form ────────────────────────────────────── */
+.booking-form h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 1.25rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  gap: 1rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-field label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.form-field input {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  color: #2d3748;
+  background: #fff;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+
+.form-field input:focus {
+  outline: none;
+  border-color: #4f7ef8;
+  box-shadow: 0 0 0 3px rgba(79, 126, 248, 0.12);
+}
+
+.form-error {
+  font-size: 0.72rem;
+  color: #e53e3e;
+}
+
+.form-actions {
+  margin-top: 1.25rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ── Buttons ─────────────────────────────────────────── */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 0.5rem 1.25rem;
+  transition: background 0.15s;
+}
+
+button[type='submit'] {
+  background: #4f7ef8;
+  color: #fff;
+}
+
+button[type='submit']:hover {
+  background: #3b6de8;
+}
+
+.btn-secondary {
+  background: #edf2f7;
+  color: #4a5568;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+.btn-sm {
+  font-size: 0.78rem;
+  padding: 0.28rem 0.7rem;
+  background: #edf2f7;
+  color: #4a5568;
+}
+
+.btn-sm:hover {
+  background: #e2e8f0;
+}
+
+.btn-danger {
+  background: #fff5f5;
+  color: #c53030;
+}
+
+.btn-danger:hover {
+  background: #fed7d7;
+}
+
+/* ── Shared section headings ─────────────────────────── */
+.booking-list h2,
+.monthly-breakdown h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 1.25rem;
+}
+
+/* ── Tables ──────────────────────────────────────────── */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+td {
+  padding: 0.75rem 0.75rem;
+  border-bottom: 1px solid #f0f4f8;
+  color: #2d3748;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.total-row td {
+  font-weight: 600;
+  border-top: 2px solid #e2e8f0;
+  border-bottom: none;
+  padding-top: 0.875rem;
+}
+
+/* ── Monthly chart ───────────────────────────────────── */
+.monthly-breakdown table {
+  margin-top: 1.75rem;
+}
+
+/* ── Occupancy table ─────────────────────────────────── */
+.occupancy-table h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 1.25rem;
+}
+
+.occupancy-input {
+  width: 72px;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #2d3748;
+  background: #f7fafc;
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.occupancy-input:focus {
+  outline: none;
+  border-color: #4f7ef8;
+  box-shadow: 0 0 0 3px rgba(79, 126, 248, 0.12);
+  background: #fff;
+}
+
+/* ── Occupancy color coding ──────────────────────────── */
+td.occ-green {
+  background: #f0fff4;
+  color: #276749;
+  font-weight: 600;
+}
+
+/* ── Negative value ──────────────────────────────────── */
+td.negative {
+  color: #c53030;
+  font-weight: 500;
+}
+
+/* ── Empty state ─────────────────────────────────────── */
+.empty-state {
+  color: #a0aec0;
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 2.5rem 1rem;
+  margin: 0;
 }
