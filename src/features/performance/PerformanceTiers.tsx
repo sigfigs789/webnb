@@ -6,6 +6,7 @@ import { getPrincipalGained, allPrincipalMonths } from '../../shared/principalGa
 import { getFixedCosts } from '../../shared/fixedCosts'
 import { EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
 import { useExcludedMonths } from './useExcludedMonths'
+import { usePerformanceNotes } from './usePerformanceNotes'
 
 const TAX_RATE = 0.04712 + 0.03 + 0.1025
 
@@ -177,9 +178,7 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
   const data = mergePerf(bookings, expenses)
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set([2023, 2024, 2025]))
   const { excludedMonths, toggleExclude } = useExcludedMonths()
-  const [notes, setNotes] = useState<Record<string, string>>(() => {
-    try { return JSON.parse(localStorage.getItem('perf-notes') ?? '{}') } catch { return {} }
-  })
+  const { notes, saveNote: persistNote } = usePerformanceNotes()
   const [editingNote, setEditingNote] = useState<string | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
   const [notePos, setNotePos] = useState<{ top: number; right: number } | null>(null)
@@ -200,12 +199,7 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
   }
 
   function saveNote(key: string) {
-    const trimmed = noteDraft.trim()
-    const updated = { ...notes }
-    if (trimmed) updated[key] = trimmed
-    else delete updated[key]
-    setNotes(updated)
-    try { localStorage.setItem('perf-notes', JSON.stringify(updated)) } catch {}
+    persistNote(key, noteDraft)
     setEditingNote(null)
   }
 

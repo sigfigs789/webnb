@@ -1,16 +1,24 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 
+const DEFAULT_EXCLUDED = new Set(['2024-10', '2024-11'])
+
 export function useExcludedMonths() {
-  const [excludedMonths, setExcludedMonths] = useState<Set<string>>(new Set())
+  const [excludedMonths, setExcludedMonths] = useState<Set<string>>(new Set(DEFAULT_EXCLUDED))
 
   useEffect(() => {
     supabase
       .from('excluded_months')
-      .select('month_key')
-      .eq('excluded', true)
+      .select('month_key, excluded')
       .then(({ data, error }) => {
-        if (!error && data) setExcludedMonths(new Set(data.map((r: { month_key: string }) => r.month_key)))
+        if (!error && data) {
+          const result = new Set(DEFAULT_EXCLUDED)
+          for (const r of data as { month_key: string; excluded: boolean }[]) {
+            if (r.excluded) result.add(r.month_key)
+            else result.delete(r.month_key)
+          }
+          setExcludedMonths(result)
+        }
       })
   }, [])
 
