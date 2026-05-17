@@ -51,6 +51,7 @@ function toBooking(row: Record<string, unknown>): Booking {
     id: row.id as string,
     name: row.name as string,
     revenue: row.revenue as number,
+    passThroughTax: (row.pass_through_tax as number) ?? 0,
     bookingDate: row.booking_date as string,
     startDate: row.start_date as string,
     endDate: row.end_date as string,
@@ -61,6 +62,7 @@ function toRow(b: Omit<Booking, 'id'>) {
   return {
     name: b.name,
     revenue: b.revenue,
+    pass_through_tax: b.passThroughTax,
     booking_date: b.bookingDate,
     start_date: b.startDate,
     end_date: b.endDate,

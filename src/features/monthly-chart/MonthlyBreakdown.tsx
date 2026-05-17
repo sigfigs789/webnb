@@ -42,6 +42,7 @@ function mergeData(bookings: Booking[], expenses: MonthExpense[]): MonthRow[] {
   // Seed all months Dec 2023–Dec 2027 so every principal row appears
   for (const { year, month } of allPrincipalMonths()) {
     const key = `${year}-${String(month).padStart(2, '0')}`
+    const fixedCosts = getFixedCosts(year, month) ?? 0
     map.set(key, {
       key,
       label: `${MONTH_NAMES[month - 1]} ${year}`,
@@ -49,8 +50,8 @@ function mergeData(bookings: Booking[], expenses: MonthExpense[]): MonthRow[] {
       month,
       revenue: 0,
       cleaning: 0, support: 0, tax: 0, misc: 0,
-      totalExpenses: 0,
-      net: 0,
+      totalExpenses: fixedCosts,
+      net: -fixedCosts,
       principal: getPrincipalGained(year, month),
       fixedCosts: getFixedCosts(year, month),
     })
@@ -63,6 +64,7 @@ function mergeData(bookings: Booking[], expenses: MonthExpense[]): MonthRow[] {
       existing.revenue = rev.revenue
       existing.net = rev.revenue - existing.totalExpenses
     } else {
+      const fixedCosts = getFixedCosts(rev.year, rev.month) ?? 0
       map.set(key, {
         key,
         label: rev.label,
@@ -70,8 +72,8 @@ function mergeData(bookings: Booking[], expenses: MonthExpense[]): MonthRow[] {
         month: rev.month,
         revenue: rev.revenue,
         cleaning: 0, support: 0, tax: 0, misc: 0,
-        totalExpenses: 0,
-        net: rev.revenue,
+        totalExpenses: fixedCosts,
+        net: rev.revenue - fixedCosts,
         principal: getPrincipalGained(rev.year, rev.month),
         fixedCosts: getFixedCosts(rev.year, rev.month),
       })
@@ -80,16 +82,18 @@ function mergeData(bookings: Booking[], expenses: MonthExpense[]): MonthRow[] {
 
   for (const exp of expenses) {
     const key = `${exp.year}-${String(exp.month).padStart(2, '0')}`
-    const total = exp.cleaning + exp.support + exp.tax + exp.misc
+    const varExpenses = exp.cleaning + exp.support + exp.tax + exp.misc
     const existing = map.get(key)
     if (existing) {
       existing.cleaning = exp.cleaning
       existing.support = exp.support
       existing.tax = exp.tax
       existing.misc = exp.misc
-      existing.totalExpenses = total
-      existing.net = existing.revenue - total
+      existing.totalExpenses = varExpenses + (existing.fixedCosts ?? 0)
+      existing.net = existing.revenue - existing.totalExpenses
     } else {
+      const fixedCosts = getFixedCosts(exp.year, exp.month) ?? 0
+      const total = varExpenses + fixedCosts
       map.set(key, {
         key,
         label: `${MONTH_NAMES[exp.month - 1]} ${exp.year}`,

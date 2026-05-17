@@ -10,6 +10,7 @@ interface Props {
 const emptyValues = {
   name: '',
   revenue: '',
+  passThroughTax: '',
   bookingDate: '',
   startDate: '',
   endDate: '',
@@ -26,6 +27,7 @@ export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
       setValues({
         name: initialValues.name,
         revenue: String(initialValues.revenue),
+        passThroughTax: String(initialValues.passThroughTax),
         bookingDate: initialValues.bookingDate,
         startDate: initialValues.startDate,
         endDate: initialValues.endDate,
@@ -58,6 +60,7 @@ export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
     onSubmit({
       name: values.name.trim(),
       revenue: Number(values.revenue),
+      passThroughTax: Number(values.passThroughTax) || 0,
       bookingDate: values.bookingDate,
       startDate: values.startDate,
       endDate: values.endDate,
@@ -101,6 +104,19 @@ export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
             placeholder="0.00"
           />
           {errors.revenue && <span className="form-error">{errors.revenue}</span>}
+        </div>
+
+        <div className="form-field">
+          <label htmlFor="passThroughTax">Pass Through Tax ($)</label>
+          <input
+            id="passThroughTax"
+            type="number"
+            value={values.passThroughTax}
+            onChange={e => setField('passThroughTax', e.target.value)}
+            min="0"
+            step="any"
+            placeholder="0.00"
+          />
         </div>
 
         <div className="form-field">

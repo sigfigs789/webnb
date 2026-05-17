@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { MonthExpense } from '../../shared/types'
 import { getFixedCosts } from '../../shared/fixedCosts'
+import { allPrincipalMonths } from '../../shared/principalGained'
 
 type ExpenseKey = 'cleaning' | 'support' | 'tax' | 'misc'
 type RowDraft = Record<ExpenseKey, string>
@@ -13,7 +14,6 @@ interface Props {
 const FIELDS: { key: ExpenseKey; label: string }[] = [
   { key: 'cleaning', label: 'Cleaning' },
   { key: 'support', label: 'Support' },
-  { key: 'tax', label: 'Tax' },
   { key: 'misc', label: 'Misc' },
 ]
 
@@ -47,9 +47,18 @@ function formatCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
+const ALL_MONTHS = allPrincipalMonths().map(({ year, month }) => monthKey(year, month))
+
+const EXPECTED: Partial<Record<ExpenseKey, number>> = {
+  cleaning: 360,
+  support: 150,
+  misc: 200,
+}
+const EXPECTED_TOTAL = Object.values(EXPECTED).reduce((s, v) => s + v, 0)
+
 export function ExpenseForm({ expenses, onSubmit }: Props) {
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({})
-  const [orderedKeys, setOrderedKeys] = useState<string[]>([])
+  const [orderedKeys, setOrderedKeys] = useState<string[]>(ALL_MONTHS)
 
   // Merge rows arriving from Supabase without overwriting in-progress local edits
   useEffect(() => {
@@ -146,11 +155,23 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
                 return (
                   <React.Fragment key={key}>
                     {showDivider && (
-                      <tr className="expense-divider">
-                        <td colSpan={colSpan}>
-                          <span>▲ actual&ensp;·&ensp;expected ▼</span>
-                        </td>
-                      </tr>
+                      <>
+                        <tr className="expense-divider">
+                          <td colSpan={colSpan}>
+                            <span>▲ actual&ensp;·&ensp;expected ▼</span>
+                          </td>
+                        </tr>
+                        <tr className="expense-row--expected">
+                          <td>Expected</td>
+                          <td>—</td>
+                          {FIELDS.map(({ key: field }) => (
+                            <td key={field}>
+                              {EXPECTED[field] !== undefined ? formatCurrency(EXPECTED[field]!) : '—'}
+                            </td>
+                          ))}
+                          <td>{formatCurrency(EXPECTED_TOTAL)}</td>
+                        </tr>
+                      </>
                     )}
                     <tr>
                       <td>{monthLabel(year, month)}</td>

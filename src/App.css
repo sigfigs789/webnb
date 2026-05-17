@@ -223,6 +223,30 @@ tr:last-child td {
   gap: 0.4rem;
 }
 
+tr.row-clickable {
+  cursor: pointer;
+}
+
+tr.row-clickable:hover td {
+  background: #f7fafc;
+}
+
+tr.row-editing td {
+  background: #ebf8ff;
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+}
+
+tr.row-editing input {
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid #90cdf4;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  background: #fff;
+  box-sizing: border-box;
+}
+
 .total-row td {
   font-weight: 600;
   border-top: 2px solid #e2e8f0;
@@ -330,6 +354,73 @@ td.negative {
   font-weight: 500;
 }
 
+/* ── Positive (green) value ──────────────────────────── */
+td.positive {
+  color: #1aad5e;
+  font-weight: 500;
+}
+
+/* ── Section divider — left border on th/td ──────────── */
+th.col-divider,
+td.col-divider {
+  border-left: 2px solid #cbd5e0;
+}
+
+/* ── Year header row ─────────────────────────────────── */
+tr.year-header-row td {
+  padding: 0;
+  background: #edf2f7;
+  border-bottom: none;
+}
+
+.year-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #2d3748;
+  text-align: left;
+}
+
+.year-toggle:hover {
+  background: #e2e8f0;
+}
+
+.year-toggle strong {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.chevron {
+  display: inline-block;
+  font-size: 1rem;
+  line-height: 1;
+  color: #718096;
+  transform: rotate(90deg);
+  transition: transform 0.15s ease;
+  user-select: none;
+}
+
+.chevron.collapsed {
+  transform: rotate(0deg);
+}
+
+/* ── Year summary row (shown when year is collapsed) ─── */
+tr.year-summary-row td {
+  background: #f7fafc;
+  color: #718096;
+  font-style: italic;
+}
+
+tr.year-summary-row .year-summary-label {
+  font-size: 0.8rem;
+}
+
 /* ── Actual / Expected divider row ───────────────────── */
 tr.expense-divider td {
   padding: 0;
@@ -360,6 +451,13 @@ tr.expense-divider td::before {
   right: 0;
   height: 2px;
   background: #e2e8f0;
+}
+
+/* ── Expected reference row ──────────────────────────── */
+tr.expense-row--expected td {
+  background: #ebf8ff;
+  color: #2c5282;
+  font-style: italic;
 }
 
 /* ── Empty state ─────────────────────────────────────── */

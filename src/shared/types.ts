@@ -2,6 +2,7 @@ export interface Booking {
   id: string;
   name: string;
   revenue: number;
+  passThroughTax: number;
   bookingDate: string;
   startDate: string;
   endDate: string;
