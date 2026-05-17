@@ -10,11 +10,11 @@ import { PerformanceTiers } from './features/performance/PerformanceTiers'
 import './App.css'
 
 const TABS = [
-  { path: '/bookings', label: 'Bookings' },
+  { path: '/performance', label: 'Performance' },
+  { path: '/bookings', label: 'Booking' },
+  { path: '/occupancy', label: 'Occupancy' },
   { path: '/expenses', label: 'Expenses' },
   { path: '/monthly', label: 'Monthly Breakdown' },
-  { path: '/occupancy', label: 'Occupancy' },
-  { path: '/performance', label: 'Performance' },
 ]
 
 function App() {
@@ -41,7 +41,7 @@ function App() {
 
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<Navigate to="/bookings" replace />} />
+          <Route path="/" element={<Navigate to="/performance" replace />} />
 
           <Route path="/bookings" element={
             <>

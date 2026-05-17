@@ -132,12 +132,27 @@ export function MonthlyBreakdown({ bookings, expenses }: Props) {
   const displayData = data.map(d =>
     d.revenue > 0 ? d : { ...d, totalExpenses: 0, net: 0 }
   )
+  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set([2023, 2024]))
+
+  const toggleYear = (year: number) =>
+    setCollapsedYears(prev => {
+      const next = new Set(prev)
+      next.has(year) ? next.delete(year) : next.add(year)
+      return next
+    })
+
+  const years = Array.from(new Set(displayData.map(d => d.year)))
+  const byYear = new Map<number, typeof displayData>()
+  for (const d of displayData) {
+    const g = byYear.get(d.year) ?? []
+    g.push(d)
+    byYear.set(d.year, g)
+  }
 
   const totalRevenue = displayData.reduce((s, d) => s + d.revenue, 0)
   const totalExpenses = displayData.reduce((s, d) => s + d.totalExpenses, 0)
   const totalNet = totalRevenue - totalExpenses
   const totalPrincipal = displayData.reduce((s, d) => s + (d.principal ?? 0), 0)
-  const totalFixedCosts = displayData.reduce((s, d) => s + (d.fixedCosts ?? 0), 0)
 
   return (
     <div className="monthly-breakdown">
@@ -172,15 +187,49 @@ export function MonthlyBreakdown({ bookings, expenses }: Props) {
             </tr>
           </thead>
           <tbody>
-            {displayData.map(d => (
-              <tr key={d.key}>
-                <td>{d.label}</td>
-                <td>{formatCurrency(d.revenue)}</td>
-                <td>{formatCurrency(d.totalExpenses)}</td>
-                <td className={d.net < 0 ? 'negative' : ''}>{formatCurrency(d.net)}</td>
-                <td>{d.principal !== null ? formatCurrency(d.principal) : '—'}</td>
-              </tr>
-            ))}
+            {years.map(year => {
+              const group = byYear.get(year)!
+              const collapsed = collapsedYears.has(year)
+              const yearRevenue = group.reduce((s, d) => s + d.revenue, 0)
+              const yearExpenses = group.reduce((s, d) => s + d.totalExpenses, 0)
+              const yearNet = yearRevenue - yearExpenses
+              const yearPrincipal = group.reduce((s, d) => s + (d.principal ?? 0), 0)
+              return (
+                <Fragment key={`year-${year}`}>
+                  <tr className="year-header-row">
+                    <td colSpan={5}>
+                      <button
+                        className="year-toggle"
+                        onClick={() => toggleYear(year)}
+                        aria-label={collapsed ? `Expand ${year}` : `Collapse ${year}`}
+                      >
+                        <span className={`chevron ${collapsed ? 'collapsed' : ''}`}>›</span>
+                        <strong>{year}</strong>
+                      </button>
+                    </td>
+                  </tr>
+                  {collapsed ? (
+                    <tr className="year-summary-row">
+                      <td className="year-summary-label">{group.length} months hidden</td>
+                      <td>{formatCurrency(yearRevenue)}</td>
+                      <td>{formatCurrency(yearExpenses)}</td>
+                      <td className={yearNet < 0 ? 'negative' : ''}>{formatCurrency(yearNet)}</td>
+                      <td>{formatCurrency(yearPrincipal)}</td>
+                    </tr>
+                  ) : (
+                    group.map(d => (
+                      <tr key={d.key}>
+                        <td>{d.label}</td>
+                        <td>{formatCurrency(d.revenue)}</td>
+                        <td>{formatCurrency(d.totalExpenses)}</td>
+                        <td className={d.net < 0 ? 'negative' : ''}>{formatCurrency(d.net)}</td>
+                        <td>{d.principal !== null ? formatCurrency(d.principal) : '—'}</td>
+                      </tr>
+                    ))
+                  )}
+                </Fragment>
+              )
+            })}
             <tr className="total-row">
               <td>Total</td>
               <td>{formatCurrency(totalRevenue)}</td>

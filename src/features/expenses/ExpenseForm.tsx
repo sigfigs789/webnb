@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Fragment } from 'react'
 import { MonthExpense } from '../../shared/types'
 import { getFixedCosts } from '../../shared/fixedCosts'
 import { allPrincipalMonths } from '../../shared/principalGained'
+import { EXPECTED_VAR_COST, EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
 
 type ExpenseKey = 'cleaning' | 'support' | 'tax' | 'misc'
 type RowDraft = Record<ExpenseKey, string>
@@ -49,16 +50,13 @@ function formatCurrency(n: number) {
 
 const ALL_MONTHS = allPrincipalMonths().map(({ year, month }) => monthKey(year, month))
 
-const EXPECTED: Partial<Record<ExpenseKey, number>> = {
-  cleaning: 360,
-  support: 150,
-  misc: 200,
-}
-const EXPECTED_TOTAL = Object.values(EXPECTED).reduce((s, v) => s + v, 0)
+const EXPECTED = EXPECTED_VAR_COST as Partial<Record<ExpenseKey, number>>
+const EXPECTED_TOTAL = EXPECTED_VAR_TOTAL
 
 export function ExpenseForm({ expenses, onSubmit }: Props) {
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({})
   const [orderedKeys, setOrderedKeys] = useState<string[]>(ALL_MONTHS)
+  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set([2023, 2024]))
 
   // Merge rows arriving from Supabase without overwriting in-progress local edits
   useEffect(() => {
@@ -84,6 +82,13 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
   function isPastMonth(year: number, month: number) {
     return year < currentYear || (year === currentYear && month < currentMonth)
   }
+
+  const toggleYear = (year: number) =>
+    setCollapsedYears(prev => {
+      const next = new Set(prev)
+      next.has(year) ? next.delete(year) : next.add(year)
+      return next
+    })
 
   const [newMonth, setNewMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -116,6 +121,24 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
     onSubmit(y, m, { cleaning: 0, support: 0, tax: 0, misc: 0 })
   }
 
+  // Group keys by year
+  const years = Array.from(new Set(orderedKeys.map(k => parseKey(k).year))).sort((a, b) => a - b)
+  const keysByYear = new Map<number, string[]>()
+  for (const k of orderedKeys) {
+    const { year } = parseKey(k)
+    const g = keysByYear.get(year) ?? []
+    g.push(k)
+    keysByYear.set(year, g)
+  }
+
+  // First future key (where the actual/expected divider goes)
+  const firstFutureKey = orderedKeys.find(k => {
+    const { year, month } = parseKey(k)
+    return !isPastMonth(year, month)
+  }) ?? null
+
+  const colSpan = 2 + FIELDS.length + 1
+
   const colTotals = FIELDS.map(({ key: field }) =>
     orderedKeys.reduce((s, mk) => s + (Number(drafts[mk]?.[field]) || 0), 0)
   )
@@ -143,55 +166,86 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
               </tr>
             </thead>
             <tbody>
-              {orderedKeys.map((key, i) => {
-                const draft = drafts[key] ?? zeroDraft()
-                const { year, month } = parseKey(key)
-                const fixedCosts = getFixedCosts(year, month)
-                const rowTotal = FIELDS.reduce((s, { key: f }) => s + (Number(draft[f]) || 0), 0)
-                const prevKey = orderedKeys[i - 1]
-                const prevParsed = prevKey ? parseKey(prevKey) : null
-                const showDivider = prevParsed && isPastMonth(prevParsed.year, prevParsed.month) && !isPastMonth(year, month)
-                const colSpan = 2 + FIELDS.length + 1
+              {years.map(year => {
+                const keys = keysByYear.get(year) ?? []
+                const collapsed = collapsedYears.has(year)
+                const yearFixed = keys.reduce((s, k) => s + (getFixedCosts(parseKey(k).year, parseKey(k).month) ?? 0), 0)
+                const yearColTotals = FIELDS.map(({ key: field }) =>
+                  keys.reduce((s, k) => s + (Number(drafts[k]?.[field]) || 0), 0)
+                )
+                const yearGrandTotal = yearColTotals.reduce((s, v) => s + v, 0)
                 return (
-                  <React.Fragment key={key}>
-                    {showDivider && (
-                      <>
-                        <tr className="expense-divider">
-                          <td colSpan={colSpan}>
-                            <span>▲ actual&ensp;·&ensp;expected ▼</span>
-                          </td>
-                        </tr>
-                        <tr className="expense-row--expected">
-                          <td>Expected</td>
-                          <td>—</td>
-                          {FIELDS.map(({ key: field }) => (
-                            <td key={field}>
-                              {EXPECTED[field] !== undefined ? formatCurrency(EXPECTED[field]!) : '—'}
-                            </td>
-                          ))}
-                          <td>{formatCurrency(EXPECTED_TOTAL)}</td>
-                        </tr>
-                      </>
-                    )}
-                    <tr>
-                      <td>{monthLabel(year, month)}</td>
-                      <td>{fixedCosts !== null ? formatCurrency(fixedCosts) : '—'}</td>
-                      {FIELDS.map(({ key: field }) => (
-                        <td key={field}>
-                          <input
-                            className="expense-input"
-                            type="number"
-                            min="0"
-                            step="any"
-                            value={draft[field]}
-                            onChange={e => setField(key, field, e.target.value)}
-                            onBlur={() => save(key)}
-                          />
-                        </td>
-                      ))}
-                      <td>{formatCurrency(rowTotal)}</td>
+                  <Fragment key={`year-${year}`}>
+                    <tr className="year-header-row">
+                      <td colSpan={colSpan}>
+                        <button
+                          className="year-toggle"
+                          onClick={() => toggleYear(year)}
+                          aria-label={collapsed ? `Expand ${year}` : `Collapse ${year}`}
+                        >
+                          <span className={`chevron ${collapsed ? 'collapsed' : ''}`}>›</span>
+                          <strong>{year}</strong>
+                        </button>
+                      </td>
                     </tr>
-                  </React.Fragment>
+                    {collapsed ? (
+                      <tr className="year-summary-row">
+                        <td className="year-summary-label">{keys.length} months hidden</td>
+                        <td>{formatCurrency(yearFixed)}</td>
+                        {yearColTotals.map((t, i) => <td key={i}>{formatCurrency(t)}</td>)}
+                        <td>{formatCurrency(yearGrandTotal)}</td>
+                      </tr>
+                    ) : (
+                      keys.map(key => {
+                        const draft = drafts[key] ?? zeroDraft()
+                        const { year: y, month: m } = parseKey(key)
+                        const fixedCosts = getFixedCosts(y, m)
+                        const rowTotal = FIELDS.reduce((s, { key: f }) => s + (Number(draft[f]) || 0), 0)
+                        const showDivider = key === firstFutureKey
+                        return (
+                          <React.Fragment key={key}>
+                            {showDivider && (
+                              <>
+                                <tr className="expense-divider">
+                                  <td colSpan={colSpan}>
+                                    <span>▲ actual&ensp;·&ensp;expected ▼</span>
+                                  </td>
+                                </tr>
+                                <tr className="expense-row--expected">
+                                  <td>Expected</td>
+                                  <td>—</td>
+                                  {FIELDS.map(({ key: field }) => (
+                                    <td key={field}>
+                                      {EXPECTED[field] !== undefined ? formatCurrency(EXPECTED[field]!) : '—'}
+                                    </td>
+                                  ))}
+                                  <td>{formatCurrency(EXPECTED_TOTAL)}</td>
+                                </tr>
+                              </>
+                            )}
+                            <tr>
+                              <td>{monthLabel(y, m)}</td>
+                              <td>{fixedCosts !== null ? formatCurrency(fixedCosts) : '—'}</td>
+                              {FIELDS.map(({ key: field }) => (
+                                <td key={field}>
+                                  <input
+                                    className="expense-input"
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    value={draft[field]}
+                                    onChange={e => setField(key, field, e.target.value)}
+                                    onBlur={() => save(key)}
+                                  />
+                                </td>
+                              ))}
+                              <td>{formatCurrency(rowTotal)}</td>
+                            </tr>
+                          </React.Fragment>
+                        )
+                      })
+                    )}
+                  </Fragment>
                 )
               })}
               <tr className="total-row">

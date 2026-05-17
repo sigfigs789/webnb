@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { Booking } from '../../shared/types'
 
 interface Props {
@@ -29,6 +29,7 @@ function formatCurrency(n: number) {
 export function BookingList({ bookings, onUpdate, onDelete }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<EditValues | null>(null)
+  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set([2023, 2024]))
 
   function startEdit(b: Booking) {
     setEditingId(b.id)
@@ -74,7 +75,24 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
     )
   }
 
+  const toggleYear = (year: number) =>
+    setCollapsedYears(prev => {
+      const next = new Set(prev)
+      next.has(year) ? next.delete(year) : next.add(year)
+      return next
+    })
+
   const sorted = [...bookings].sort((a, b) => b.startDate.localeCompare(a.startDate))
+
+  // Group by check-in year, newest year first
+  const years = Array.from(new Set(sorted.map(b => Number(b.startDate.slice(0, 4))))).sort((a, b) => b - a)
+  const byYear = new Map<number, typeof sorted>()
+  for (const b of sorted) {
+    const year = Number(b.startDate.slice(0, 4))
+    const g = byYear.get(year) ?? []
+    g.push(b)
+    byYear.set(year, g)
+  }
 
   return (
     <div className="booking-list">
@@ -93,105 +111,134 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
             </tr>
           </thead>
           <tbody>
-            {sorted.map(b => {
-              const isEditing = b.id === editingId
+            {years.map(year => {
+              const group = byYear.get(year)!
+              const collapsed = collapsedYears.has(year)
+              const yearRevenue = group.reduce((s, b) => s + b.revenue, 0)
               return (
-                <tr
-                  key={b.id}
-                  className={isEditing ? 'row-editing' : 'row-clickable'}
-                  onClick={!isEditing ? () => startEdit(b) : undefined}
-                >
-                  <td>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editValues!.name}
-                        onChange={e => setField('name', e.target.value)}
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      b.name
-                    )}
-                  </td>
-                  <td>
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        value={editValues!.revenue}
-                        onChange={e => setField('revenue', e.target.value)}
-                        min="0"
-                        step="any"
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      formatCurrency(b.revenue)
-                    )}
-                  </td>
-                  <td>
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        value={editValues!.passThroughTax}
-                        onChange={e => setField('passThroughTax', e.target.value)}
-                        min="0"
-                        step="any"
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      formatCurrency(b.passThroughTax)
-                    )}
-                  </td>
-                  <td>
-                    {isEditing ? (
-                      <input
-                        type="date"
-                        value={editValues!.bookingDate}
-                        onChange={e => setField('bookingDate', e.target.value)}
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      formatDate(b.bookingDate)
-                    )}
-                  </td>
-                  <td>
-                    {isEditing ? (
-                      <input
-                        type="date"
-                        value={editValues!.startDate}
-                        onChange={e => setField('startDate', e.target.value)}
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      formatDate(b.startDate)
-                    )}
-                  </td>
-                  <td>
-                    {isEditing ? (
-                      <input
-                        type="date"
-                        value={editValues!.endDate}
-                        onChange={e => setField('endDate', e.target.value)}
-                        onClick={e => e.stopPropagation()}
-                      />
-                    ) : (
-                      formatDate(b.endDate)
-                    )}
-                  </td>
-                  <td onClick={e => e.stopPropagation()}>
-                    <div className="actions">
-                      {isEditing ? (
-                        <>
-                          <button className="btn-sm" onClick={saveEdit}>Save</button>
-                          <button className="btn-sm btn-secondary" onClick={cancelEdit}>Cancel</button>
-                        </>
-                      ) : (
-                        <button className="btn-sm btn-danger" onClick={() => onDelete(b.id)}>
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                <Fragment key={`year-${year}`}>
+                  <tr className="year-header-row">
+                    <td colSpan={7}>
+                      <button
+                        className="year-toggle"
+                        onClick={() => toggleYear(year)}
+                        aria-label={collapsed ? `Expand ${year}` : `Collapse ${year}`}
+                      >
+                        <span className={`chevron ${collapsed ? 'collapsed' : ''}`}>›</span>
+                        <strong>{year}</strong>
+                      </button>
+                    </td>
+                  </tr>
+                  {collapsed ? (
+                    <tr className="year-summary-row">
+                      <td className="year-summary-label">{group.length} bookings hidden</td>
+                      <td>{formatCurrency(yearRevenue)}</td>
+                      <td colSpan={5}>—</td>
+                    </tr>
+                  ) : (
+                    group.map(b => {
+                      const isEditing = b.id === editingId
+                      return (
+                        <tr
+                          key={b.id}
+                          className={isEditing ? 'row-editing' : 'row-clickable'}
+                          onClick={!isEditing ? () => startEdit(b) : undefined}
+                        >
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={editValues!.name}
+                                onChange={e => setField('name', e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                              />
+                            ) : (
+                              b.name
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={editValues!.revenue}
+                                onChange={e => setField('revenue', e.target.value)}
+                                min="0"
+                                step="any"
+                                onClick={e => e.stopPropagation()}
+                              />
+                            ) : (
+                              formatCurrency(b.revenue)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={editValues!.passThroughTax}
+                                onChange={e => setField('passThroughTax', e.target.value)}
+                                min="0"
+                                step="any"
+                                onClick={e => e.stopPropagation()}
+                              />
+                            ) : (
+                              formatCurrency(b.passThroughTax)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="date"
+                                value={editValues!.bookingDate}
+                                onChange={e => setField('bookingDate', e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                              />
+                            ) : (
+                              formatDate(b.bookingDate)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="date"
+                                value={editValues!.startDate}
+                                onChange={e => setField('startDate', e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                              />
+                            ) : (
+                              formatDate(b.startDate)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="date"
+                                value={editValues!.endDate}
+                                onChange={e => setField('endDate', e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                              />
+                            ) : (
+                              formatDate(b.endDate)
+                            )}
+                          </td>
+                          <td onClick={e => e.stopPropagation()}>
+                            <div className="actions">
+                              {isEditing ? (
+                                <>
+                                  <button className="btn-sm" onClick={saveEdit}>Save</button>
+                                  <button className="btn-sm btn-secondary" onClick={cancelEdit}>Cancel</button>
+                                </>
+                              ) : (
+                                <button className="btn-sm btn-danger" onClick={() => onDelete(b.id)}>
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </Fragment>
               )
             })}
           </tbody>

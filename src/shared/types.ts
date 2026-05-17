@@ -13,6 +13,7 @@ export interface MonthlyRevenue {
   month: number;
   label: string;
   revenue: number;
+  netRevenue: number;
 }
 
 export interface MonthExpense {

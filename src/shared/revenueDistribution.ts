@@ -18,6 +18,7 @@ export function distributeRevenue(booking: Booking): MonthlyRevenue[] {
   if (totalDays <= 0) return []
 
   const dailyRate = booking.revenue / totalDays
+  const netDailyRate = (booking.revenue - booking.passThroughTax) / totalDays
   const result: MonthlyRevenue[] = []
   let cursor = start
 
@@ -33,6 +34,7 @@ export function distributeRevenue(booking: Booking): MonthlyRevenue[] {
       month: month + 1,
       label: `${MONTH_NAMES[month]} ${year}`,
       revenue: days * dailyRate,
+      netRevenue: days * netDailyRate,
     })
 
     cursor = nextMonthStart
@@ -50,6 +52,7 @@ export function aggregateMonthlyRevenue(bookings: Booking[]): MonthlyRevenue[] {
       const existing = map.get(key)
       if (existing) {
         existing.revenue += entry.revenue
+        existing.netRevenue += entry.netRevenue
       } else {
         map.set(key, { ...entry })
       }
