@@ -18,6 +18,9 @@
 }
 
 .app-main {
+  width: fit-content;
+  min-width: min(100%, 700px);
+  margin: 0 auto;
   padding: 1rem;
   display: flex;
   flex-direction: column;
