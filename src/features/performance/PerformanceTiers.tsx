@@ -238,13 +238,6 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
     byYear.set(r.year, g)
   }
 
-  const totRevenue = data.reduce((s, d) => s + d.revenue, 0)
-  const totTaxes = data.reduce((s, d) => s + d.taxes, 0)
-  const totVarExp = data.reduce((s, d) => s + d.variableExpenses, 0)
-  const totFixed = data.reduce((s, d) => s + d.fixedCosts, 0)
-  const totPrincipal = data.reduce((s, d) => s + d.principal, 0)
-  const totTier2 = data.reduce((s, d) => s + d.tier2, 0)
-  const totTier1 = data.reduce((s, d) => s + d.tier1, 0)
 
   return (
     <>
@@ -355,19 +348,6 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
                 </>
               )
             })}
-            <tr className="total-row">
-              <td>Total</td>
-              <td className="positive">{formatCurrency(totRevenue)}</td>
-              <td>{formatCurrency(totFixed)}</td>
-              <td>{formatCurrency(totVarExp)}</td>
-              <td>{formatCurrency(totTaxes)}</td>
-              <td className={`col-divider${totTier2 < 0 ? ' negative' : ''}`}>{formatCurrency(totTier2)}</td>
-              <td>—</td>
-              <td className="col-divider positive">{formatCurrency(totPrincipal)}</td>
-              <td className={totTier1 < 0 ? 'negative' : ''}>{formatCurrency(totTier1)}</td>
-              <td>—</td>
-              <td className="note-cell" />
-            </tr>
           </tbody>
         </table>
       </div>
