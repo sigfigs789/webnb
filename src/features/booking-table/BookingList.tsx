@@ -22,6 +22,13 @@ function formatDate(d: string) {
   return `${m}/${day}/${y}`
 }
 
+function calcNights(start: string, end: string) {
+  if (!start || !end) return '—'
+  const ms = new Date(end).getTime() - new Date(start).getTime()
+  const nights = Math.round(ms / 86400000)
+  return nights > 0 ? `${nights}n` : '—'
+}
+
 function formatCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 }
@@ -108,6 +115,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
               <th>Booking Date</th>
               <th>Check-in</th>
               <th>Check-out</th>
+              <th>Duration</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -119,7 +127,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
               return (
                 <Fragment key={`year-${year}`}>
                   <tr className="year-header-row">
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <button
                         className="year-toggle"
                         onClick={() => toggleYear(year)}
@@ -136,7 +144,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                       <td>{formatCurrency(yearRevenue)}</td>
                       <td>{formatCurrency(group.reduce((s, b) => s + b.passThroughTax, 0))}</td>
                       <td>{formatCurrency(yearRevenue - group.reduce((s, b) => s + b.passThroughTax, 0))}</td>
-                      <td colSpan={4}>—</td>
+                      <td colSpan={5}>—</td>
                     </tr>
                   ) : (
                     group.map(b => {
@@ -228,6 +236,12 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                             ) : (
                               formatDate(b.endDate)
                             )}
+                          </td>
+                          <td>
+                            {isEditing
+                              ? calcNights(editValues!.startDate, editValues!.endDate)
+                              : calcNights(b.startDate, b.endDate)
+                            }
                           </td>
                           <td onClick={e => e.stopPropagation()}>
                             <div className="actions">
