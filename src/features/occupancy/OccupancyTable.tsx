@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Booking } from '../../shared/types'
 import { aggregateAirbnbDays } from '../../shared/occupancyDays'
 import { useOccupancy } from './useOccupancy'
@@ -6,9 +7,50 @@ interface Props {
   bookings: Booking[]
 }
 
+type OccupancyDraft = { kindredDays: string; ourDays: string }
+
+function monthKey(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, '0')}`
+}
+
+const zeroDraft = (): OccupancyDraft => ({ kindredDays: '0', ourDays: '0' })
+
 export function OccupancyTable({ bookings }: Props) {
-  const { getEntry, setEntry } = useOccupancy()
+  const { entries, setEntry } = useOccupancy()
   const months = aggregateAirbnbDays(bookings)
+
+  const [drafts, setDrafts] = useState<Record<string, OccupancyDraft>>({})
+
+  // Sync Supabase data into draft state without overwriting in-progress edits
+  useEffect(() => {
+    setDrafts(prev => {
+      const next = { ...prev }
+      for (const e of entries) {
+        const key = monthKey(e.year, e.month)
+        if (!(key in prev)) {
+          next[key] = { kindredDays: String(e.kindredDays), ourDays: String(e.ourDays) }
+        }
+      }
+      return next
+    })
+  }, [entries])
+
+  function getDraft(year: number, month: number): OccupancyDraft {
+    return drafts[monthKey(year, month)] ?? zeroDraft()
+  }
+
+  function setField(year: number, month: number, field: keyof OccupancyDraft, value: string) {
+    const key = monthKey(year, month)
+    setDrafts(prev => ({ ...prev, [key]: { ...(prev[key] ?? zeroDraft()), [field]: value } }))
+  }
+
+  function save(year: number, month: number) {
+    const draft = getDraft(year, month)
+    setEntry(year, month, {
+      kindredDays: Math.max(0, Math.floor(Number(draft.kindredDays) || 0)),
+      ourDays: Math.max(0, Math.floor(Number(draft.ourDays) || 0)),
+    })
+  }
 
   if (months.length === 0) {
     return (
@@ -21,12 +63,14 @@ export function OccupancyTable({ bookings }: Props) {
 
   const totals = months.reduce(
     (acc, m) => {
-      const { kindredDays, ourDays } = getEntry(m.year, m.month)
-      const unoccupied = Math.max(0, m.daysInMonth - m.airbnbDays - kindredDays - ourDays)
+      const { kindredDays, ourDays } = getDraft(m.year, m.month)
+      const k = Number(kindredDays) || 0
+      const o = Number(ourDays) || 0
+      const unoccupied = Math.max(0, m.daysInMonth - m.airbnbDays - k - o)
       return {
         airbnb: acc.airbnb + m.airbnbDays,
-        kindred: acc.kindred + kindredDays,
-        our: acc.our + ourDays,
+        kindred: acc.kindred + k,
+        our: acc.our + o,
         unoccupied: acc.unoccupied + unoccupied,
         total: acc.total + m.daysInMonth,
       }
@@ -53,14 +97,15 @@ export function OccupancyTable({ bookings }: Props) {
           </thead>
           <tbody>
             {months.map(m => {
-              const { kindredDays, ourDays } = getEntry(m.year, m.month)
-              const unoccupied = Math.max(0, m.daysInMonth - m.airbnbDays - kindredDays - ourDays)
+              const { kindredDays, ourDays } = getDraft(m.year, m.month)
+              const k = Number(kindredDays) || 0
+              const o = Number(ourDays) || 0
+              const unoccupied = Math.max(0, m.daysInMonth - m.airbnbDays - k - o)
               const airbnbPct = (m.airbnbDays / m.daysInMonth) * 100
-              const totalOccupiedDays = m.airbnbDays + kindredDays + ourDays
-              const totalPct = (totalOccupiedDays / m.daysInMonth) * 100
+              const totalPct = ((m.airbnbDays + k + o) / m.daysInMonth) * 100
 
               return (
-                <tr key={`${m.year}-${m.month}`}>
+                <tr key={monthKey(m.year, m.month)}>
                   <td>{m.label}</td>
                   <td>{m.airbnbDays}</td>
                   <td>
@@ -69,9 +114,8 @@ export function OccupancyTable({ bookings }: Props) {
                       type="number"
                       min={0}
                       value={kindredDays}
-                      onChange={e =>
-                        setEntry(m.year, m.month, { kindredDays: Math.max(0, Math.floor(Number(e.target.value))) })
-                      }
+                      onChange={e => setField(m.year, m.month, 'kindredDays', e.target.value)}
+                      onBlur={() => save(m.year, m.month)}
                     />
                   </td>
                   <td>
@@ -80,9 +124,8 @@ export function OccupancyTable({ bookings }: Props) {
                       type="number"
                       min={0}
                       value={ourDays}
-                      onChange={e =>
-                        setEntry(m.year, m.month, { ourDays: Math.max(0, Math.floor(Number(e.target.value))) })
-                      }
+                      onChange={e => setField(m.year, m.month, 'ourDays', e.target.value)}
+                      onBlur={() => save(m.year, m.month)}
                     />
                   </td>
                   <td>{unoccupied}</td>

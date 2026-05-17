@@ -43,6 +43,7 @@
 }
 
 .tab-btn {
+  display: inline-block;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -52,6 +53,7 @@
   font-weight: 500;
   color: #718096;
   cursor: pointer;
+  text-decoration: none;
   transition: color 0.15s, border-color 0.15s;
   margin-bottom: -1px;
 }
@@ -231,6 +233,60 @@ tr:last-child td {
 /* ── Monthly chart ───────────────────────────────────── */
 .monthly-breakdown table {
   margin-top: 1.75rem;
+}
+
+/* ── Expense table ───────────────────────────────────── */
+.expense-table h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 1.25rem;
+}
+
+.expense-input {
+  width: 90px;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #2d3748;
+  background: #f7fafc;
+  text-align: right;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.expense-input:focus {
+  outline: none;
+  border-color: #4f7ef8;
+  box-shadow: 0 0 0 3px rgba(79, 126, 248, 0.12);
+  background: #fff;
+}
+
+.expense-add-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.expense-month-picker {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #2d3748;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.expense-month-picker:focus {
+  outline: none;
+  border-color: #4f7ef8;
+  box-shadow: 0 0 0 3px rgba(79, 126, 248, 0.12);
 }
 
 /* ── Occupancy table ─────────────────────────────────── */

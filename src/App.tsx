@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import type { Booking } from './shared/types'
 import { useBookings } from './features/booking-input/useBookings'
 import { useExpenses } from './features/expenses/useExpenses'
@@ -9,20 +10,18 @@ import { MonthlyBreakdown } from './features/monthly-chart/MonthlyBreakdown'
 import { OccupancyTable } from './features/occupancy/OccupancyTable'
 import './App.css'
 
-type Tab = 'bookings' | 'expenses' | 'monthly' | 'occupancy'
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'bookings', label: 'Bookings' },
-  { id: 'expenses', label: 'Expenses' },
-  { id: 'monthly', label: 'Monthly Breakdown' },
-  { id: 'occupancy', label: 'Occupancy' },
+const TABS = [
+  { path: '/bookings', label: 'Bookings' },
+  { path: '/expenses', label: 'Expenses' },
+  { path: '/monthly', label: 'Monthly Breakdown' },
+  { path: '/occupancy', label: 'Occupancy' },
 ]
 
 function App() {
   const { bookings, addBooking, updateBooking, deleteBooking } = useBookings()
   const { expenses, setExpense } = useExpenses()
-  const [activeTab, setActiveTab] = useState<Tab>('bookings')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   const editingBooking = editingId ? bookings.find(b => b.id === editingId) : undefined
 
@@ -37,7 +36,7 @@ function App() {
 
   function handleEdit(id: string) {
     setEditingId(id)
-    setActiveTab('bookings')
+    navigate('/bookings')
   }
 
   return (
@@ -48,49 +47,53 @@ function App() {
 
       <nav className="tab-nav">
         {TABS.map(tab => (
-          <button
-            key={tab.id}
-            className={`tab-btn${activeTab === tab.id ? ' tab-btn--active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+          <NavLink
+            key={tab.path}
+            to={tab.path}
+            className={({ isActive }) => `tab-btn${isActive ? ' tab-btn--active' : ''}`}
           >
             {tab.label}
-          </button>
+          </NavLink>
         ))}
       </nav>
 
       <main className="app-main">
-        {activeTab === 'bookings' && (
-          <>
+        <Routes>
+          <Route path="/" element={<Navigate to="/bookings" replace />} />
+
+          <Route path="/bookings" element={
+            <>
+              <section className="card">
+                <BookingForm
+                  onSubmit={handleBookingSubmit}
+                  initialValues={editingBooking}
+                  onCancel={() => setEditingId(null)}
+                />
+              </section>
+              <section className="card">
+                <BookingList bookings={bookings} onEdit={handleEdit} onDelete={deleteBooking} />
+              </section>
+            </>
+          } />
+
+          <Route path="/expenses" element={
             <section className="card">
-              <BookingForm
-                onSubmit={handleBookingSubmit}
-                initialValues={editingBooking}
-                onCancel={() => setEditingId(null)}
-              />
+              <ExpenseForm expenses={expenses} onSubmit={setExpense} />
             </section>
+          } />
+
+          <Route path="/monthly" element={
             <section className="card">
-              <BookingList bookings={bookings} onEdit={handleEdit} onDelete={deleteBooking} />
+              <MonthlyBreakdown bookings={bookings} expenses={expenses} />
             </section>
-          </>
-        )}
+          } />
 
-        {activeTab === 'expenses' && (
-          <section className="card">
-            <ExpenseForm expenses={expenses} onSubmit={setExpense} />
-          </section>
-        )}
-
-        {activeTab === 'monthly' && (
-          <section className="card">
-            <MonthlyBreakdown bookings={bookings} expenses={expenses} />
-          </section>
-        )}
-
-        {activeTab === 'occupancy' && (
-          <section className="card">
-            <OccupancyTable bookings={bookings} />
-          </section>
-        )}
+          <Route path="/occupancy" element={
+            <section className="card">
+              <OccupancyTable bookings={bookings} />
+            </section>
+          } />
+        </Routes>
       </main>
     </div>
   )

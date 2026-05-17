@@ -10,6 +10,8 @@ import {
 } from 'recharts'
 import { Booking, MonthExpense } from '../../shared/types'
 import { aggregateMonthlyRevenue } from '../../shared/revenueDistribution'
+import { getPrincipalGained, allPrincipalMonths } from '../../shared/principalGained'
+import { getFixedCosts } from '../../shared/fixedCosts'
 
 interface Props {
   bookings: Booking[]
@@ -28,6 +30,8 @@ interface MonthRow {
   misc: number
   totalExpenses: number
   net: number
+  principal: number | null
+  fixedCosts: number | null
 }
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -35,18 +39,43 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 function mergeData(bookings: Booking[], expenses: MonthExpense[]): MonthRow[] {
   const map = new Map<string, MonthRow>()
 
-  for (const rev of aggregateMonthlyRevenue(bookings)) {
-    const key = `${rev.year}-${String(rev.month).padStart(2, '0')}`
+  // Seed all months Dec 2023–Dec 2027 so every principal row appears
+  for (const { year, month } of allPrincipalMonths()) {
+    const key = `${year}-${String(month).padStart(2, '0')}`
     map.set(key, {
       key,
-      label: rev.label,
-      year: rev.year,
-      month: rev.month,
-      revenue: rev.revenue,
+      label: `${MONTH_NAMES[month - 1]} ${year}`,
+      year,
+      month,
+      revenue: 0,
       cleaning: 0, support: 0, tax: 0, misc: 0,
       totalExpenses: 0,
-      net: rev.revenue,
+      net: 0,
+      principal: getPrincipalGained(year, month),
+      fixedCosts: getFixedCosts(year, month),
     })
+  }
+
+  for (const rev of aggregateMonthlyRevenue(bookings)) {
+    const key = `${rev.year}-${String(rev.month).padStart(2, '0')}`
+    const existing = map.get(key)
+    if (existing) {
+      existing.revenue = rev.revenue
+      existing.net = rev.revenue - existing.totalExpenses
+    } else {
+      map.set(key, {
+        key,
+        label: rev.label,
+        year: rev.year,
+        month: rev.month,
+        revenue: rev.revenue,
+        cleaning: 0, support: 0, tax: 0, misc: 0,
+        totalExpenses: 0,
+        net: rev.revenue,
+        principal: getPrincipalGained(rev.year, rev.month),
+        fixedCosts: getFixedCosts(rev.year, rev.month),
+      })
+    }
   }
 
   for (const exp of expenses) {
@@ -73,6 +102,8 @@ function mergeData(bookings: Booking[], expenses: MonthExpense[]): MonthRow[] {
         misc: exp.misc,
         totalExpenses: total,
         net: -total,
+        principal: getPrincipalGained(exp.year, exp.month),
+        fixedCosts: getFixedCosts(exp.year, exp.month),
       })
     }
   }
@@ -94,18 +125,11 @@ function yAxisFormatter(v: number) {
 export function MonthlyBreakdown({ bookings, expenses }: Props) {
   const data = mergeData(bookings, expenses)
 
-  if (data.length === 0) {
-    return (
-      <div className="monthly-breakdown">
-        <h2>Monthly Breakdown</h2>
-        <p className="empty-state">Monthly breakdown will appear here once bookings or expenses are added.</p>
-      </div>
-    )
-  }
-
   const totalRevenue = data.reduce((s, d) => s + d.revenue, 0)
   const totalExpenses = data.reduce((s, d) => s + d.totalExpenses, 0)
   const totalNet = totalRevenue - totalExpenses
+  const totalPrincipal = data.reduce((s, d) => s + (d.principal ?? 0), 0)
+  const totalFixedCosts = data.reduce((s, d) => s + (d.fixedCosts ?? 0), 0)
 
   return (
     <div className="monthly-breakdown">
@@ -134,12 +158,14 @@ export function MonthlyBreakdown({ bookings, expenses }: Props) {
             <tr>
               <th>Month</th>
               <th>Revenue</th>
+              <th>Fixed Costs</th>
               <th>Cleaning</th>
               <th>Support</th>
               <th>Tax</th>
               <th>Misc</th>
               <th>Total Expenses</th>
               <th>Net</th>
+              <th>Principal Gained</th>
             </tr>
           </thead>
           <tbody>
@@ -147,20 +173,24 @@ export function MonthlyBreakdown({ bookings, expenses }: Props) {
               <tr key={d.key}>
                 <td>{d.label}</td>
                 <td>{formatCurrency(d.revenue)}</td>
+                <td>{d.fixedCosts !== null ? formatCurrency(d.fixedCosts) : '—'}</td>
                 <td>{formatCurrency(d.cleaning)}</td>
                 <td>{formatCurrency(d.support)}</td>
                 <td>{formatCurrency(d.tax)}</td>
                 <td>{formatCurrency(d.misc)}</td>
                 <td>{formatCurrency(d.totalExpenses)}</td>
                 <td className={d.net < 0 ? 'negative' : ''}>{formatCurrency(d.net)}</td>
+                <td>{d.principal !== null ? formatCurrency(d.principal) : '—'}</td>
               </tr>
             ))}
             <tr className="total-row">
               <td>Total</td>
               <td>{formatCurrency(totalRevenue)}</td>
+              <td>{formatCurrency(totalFixedCosts)}</td>
               <td colSpan={4}></td>
               <td>{formatCurrency(totalExpenses)}</td>
               <td className={totalNet < 0 ? 'negative' : ''}>{formatCurrency(totalNet)}</td>
+              <td>{formatCurrency(totalPrincipal)}</td>
             </tr>
           </tbody>
         </table>
