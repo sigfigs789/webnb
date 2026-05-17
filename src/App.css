@@ -330,6 +330,38 @@ td.negative {
   font-weight: 500;
 }
 
+/* ── Actual / Expected divider row ───────────────────── */
+tr.expense-divider td {
+  padding: 0;
+  border-bottom: none;
+  position: relative;
+  text-align: center;
+}
+
+tr.expense-divider span {
+  display: inline-block;
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  padding: 0 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #a0aec0;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 2.5;
+}
+
+tr.expense-divider td::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #e2e8f0;
+}
+
 /* ── Empty state ─────────────────────────────────────── */
 .empty-state {
   color: #a0aec0;

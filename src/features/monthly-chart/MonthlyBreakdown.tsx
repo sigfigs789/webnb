@@ -158,11 +158,6 @@ export function MonthlyBreakdown({ bookings, expenses }: Props) {
             <tr>
               <th>Month</th>
               <th>Revenue</th>
-              <th>Fixed Costs</th>
-              <th>Cleaning</th>
-              <th>Support</th>
-              <th>Tax</th>
-              <th>Misc</th>
               <th>Total Expenses</th>
               <th>Net</th>
               <th>Principal Gained</th>
@@ -173,11 +168,6 @@ export function MonthlyBreakdown({ bookings, expenses }: Props) {
               <tr key={d.key}>
                 <td>{d.label}</td>
                 <td>{formatCurrency(d.revenue)}</td>
-                <td>{d.fixedCosts !== null ? formatCurrency(d.fixedCosts) : '—'}</td>
-                <td>{formatCurrency(d.cleaning)}</td>
-                <td>{formatCurrency(d.support)}</td>
-                <td>{formatCurrency(d.tax)}</td>
-                <td>{formatCurrency(d.misc)}</td>
                 <td>{formatCurrency(d.totalExpenses)}</td>
                 <td className={d.net < 0 ? 'negative' : ''}>{formatCurrency(d.net)}</td>
                 <td>{d.principal !== null ? formatCurrency(d.principal) : '—'}</td>
@@ -186,8 +176,6 @@ export function MonthlyBreakdown({ bookings, expenses }: Props) {
             <tr className="total-row">
               <td>Total</td>
               <td>{formatCurrency(totalRevenue)}</td>
-              <td>{formatCurrency(totalFixedCosts)}</td>
-              <td colSpan={4}></td>
               <td>{formatCurrency(totalExpenses)}</td>
               <td className={totalNet < 0 ? 'negative' : ''}>{formatCurrency(totalNet)}</td>
               <td>{formatCurrency(totalPrincipal)}</td>
@@ -195,6 +183,7 @@ export function MonthlyBreakdown({ bookings, expenses }: Props) {
           </tbody>
         </table>
       </div>
+
     </div>
   )
 }

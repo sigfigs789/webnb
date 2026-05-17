@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { MonthExpense } from '../../shared/types'
+import { getFixedCosts } from '../../shared/fixedCosts'
 
 type ExpenseKey = 'cleaning' | 'support' | 'tax' | 'misc'
 type RowDraft = Record<ExpenseKey, string>
@@ -68,6 +69,13 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
   }, [expenses])
 
   const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth() + 1
+
+  function isPastMonth(year: number, month: number) {
+    return year < currentYear || (year === currentYear && month < currentMonth)
+  }
+
   const [newMonth, setNewMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   )
@@ -103,6 +111,10 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
     orderedKeys.reduce((s, mk) => s + (Number(drafts[mk]?.[field]) || 0), 0)
   )
   const grandTotal = colTotals.reduce((s, v) => s + v, 0)
+  const totalFixedCosts = orderedKeys.reduce((s, mk) => {
+    const { year, month } = parseKey(mk)
+    return s + (getFixedCosts(year, month) ?? 0)
+  }, 0)
 
   return (
     <div className="expense-table">
@@ -116,37 +128,54 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
             <thead>
               <tr>
                 <th>Month</th>
+                <th>Fixed Costs</th>
                 {FIELDS.map(({ key, label }) => <th key={key}>{label}</th>)}
                 <th>Total</th>
               </tr>
             </thead>
             <tbody>
-              {orderedKeys.map(key => {
+              {orderedKeys.map((key, i) => {
                 const draft = drafts[key] ?? zeroDraft()
                 const { year, month } = parseKey(key)
+                const fixedCosts = getFixedCosts(year, month)
                 const rowTotal = FIELDS.reduce((s, { key: f }) => s + (Number(draft[f]) || 0), 0)
+                const prevKey = orderedKeys[i - 1]
+                const prevParsed = prevKey ? parseKey(prevKey) : null
+                const showDivider = prevParsed && isPastMonth(prevParsed.year, prevParsed.month) && !isPastMonth(year, month)
+                const colSpan = 2 + FIELDS.length + 1
                 return (
-                  <tr key={key}>
-                    <td>{monthLabel(year, month)}</td>
-                    {FIELDS.map(({ key: field }) => (
-                      <td key={field}>
-                        <input
-                          className="expense-input"
-                          type="number"
-                          min="0"
-                          step="any"
-                          value={draft[field]}
-                          onChange={e => setField(key, field, e.target.value)}
-                          onBlur={() => save(key)}
-                        />
-                      </td>
-                    ))}
-                    <td>{formatCurrency(rowTotal)}</td>
-                  </tr>
+                  <React.Fragment key={key}>
+                    {showDivider && (
+                      <tr className="expense-divider">
+                        <td colSpan={colSpan}>
+                          <span>▲ actual&ensp;·&ensp;expected ▼</span>
+                        </td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td>{monthLabel(year, month)}</td>
+                      <td>{fixedCosts !== null ? formatCurrency(fixedCosts) : '—'}</td>
+                      {FIELDS.map(({ key: field }) => (
+                        <td key={field}>
+                          <input
+                            className="expense-input"
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={draft[field]}
+                            onChange={e => setField(key, field, e.target.value)}
+                            onBlur={() => save(key)}
+                          />
+                        </td>
+                      ))}
+                      <td>{formatCurrency(rowTotal)}</td>
+                    </tr>
+                  </React.Fragment>
                 )
               })}
               <tr className="total-row">
                 <td>Total</td>
+                <td>{formatCurrency(totalFixedCosts)}</td>
                 {colTotals.map((total, i) => <td key={i}>{formatCurrency(total)}</td>)}
                 <td>{formatCurrency(grandTotal)}</td>
               </tr>
