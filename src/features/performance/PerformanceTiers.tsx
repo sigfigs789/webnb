@@ -1,11 +1,52 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Booking, MonthExpense } from '../../shared/types'
 import { aggregateMonthlyRevenue } from '../../shared/revenueDistribution'
 import { getPrincipalGained, allPrincipalMonths } from '../../shared/principalGained'
 import { getFixedCosts } from '../../shared/fixedCosts'
 import { EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
+import { useExcludedMonths } from './useExcludedMonths'
 
 const TAX_RATE = 0.04712 + 0.03 + 0.1025
+
+const ACTUAL_TAXES: Record<string, number> = {
+  '2023-12': 621,
+  '2024-01': 574,
+  '2024-02': 0,
+  '2024-03': 596,
+  '2024-04': 529,
+  '2024-05': 546,
+  '2024-06': 749,
+  '2024-07': 403,
+  '2024-08': 582,
+  '2024-09': 540,
+  '2024-10': 20,
+  '2024-11': 1045,
+  '2024-12': 909,
+  '2025-01': 965,
+  '2025-02': 60,
+  '2025-03': 60,
+  '2025-04': 0,
+  '2025-05': 725,
+  '2025-06': 873,
+  '2025-07': 808,
+  '2025-08': 866,
+  '2025-09': 750,
+  '2025-10': 0,
+  '2025-11': 739,
+  '2025-12': 843,
+  '2026-01': 947,
+  '2026-02': 59,
+  '2026-03': 35,
+  '2026-04': 526,
+}
+
+function getTax(key: string, year: number, month: number, netRevenue: number): number {
+  const now = new Date()
+  const isPast = year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)
+  if (isPast && key in ACTUAL_TAXES) return ACTUAL_TAXES[key]
+  return netRevenue * TAX_RATE
+}
 
 interface Props {
   bookings: Booking[]
@@ -18,7 +59,6 @@ interface MonthPerf {
   year: number
   month: number
   revenue: number
-  netRevenue: number
   taxes: number
   variableExpenses: number
   fixedCosts: number
@@ -46,7 +86,6 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[]): MonthPerf[] {
       year,
       month,
       revenue: 0,
-      netRevenue: 0,
       taxes: 0,
       variableExpenses: varExp,
       fixedCosts,
@@ -60,11 +99,10 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[]): MonthPerf[] {
 
   for (const rev of aggregateMonthlyRevenue(bookings)) {
     const key = `${rev.year}-${String(rev.month).padStart(2, '0')}`
-    const taxes = rev.netRevenue * TAX_RATE
+    const taxes = getTax(key, rev.year, rev.month, rev.netRevenue)
     const existing = map.get(key)
     if (existing) {
       existing.revenue = rev.revenue
-      existing.netRevenue = rev.netRevenue
       existing.taxes = taxes
       existing.allExpenses = existing.variableExpenses + existing.fixedCosts + taxes
       existing.tier2 = rev.revenue - existing.allExpenses
@@ -80,7 +118,6 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[]): MonthPerf[] {
         year: rev.year,
         month: rev.month,
         revenue: rev.revenue,
-        netRevenue: rev.netRevenue,
         taxes,
         variableExpenses: varExp,
         fixedCosts,
@@ -113,7 +150,6 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[]): MonthPerf[] {
         year: exp.year,
         month: exp.month,
         revenue: 0,
-        netRevenue: 0,
         taxes: 0,
         variableExpenses: varExp,
         fixedCosts,
@@ -140,19 +176,43 @@ const COL_COUNT = 11
 export function PerformanceTiers({ bookings, expenses }: Props) {
   const data = mergePerf(bookings, expenses)
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set([2023, 2024, 2025]))
-  const [excludedMonths, setExcludedMonths] = useState<Set<string>>(new Set())
+  const { excludedMonths, toggleExclude } = useExcludedMonths()
+  const [notes, setNotes] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem('perf-notes') ?? '{}') } catch { return {} }
+  })
+  const [editingNote, setEditingNote] = useState<string | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
+  const [notePos, setNotePos] = useState<{ top: number; right: number } | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px'
+    }
+  }, [editingNote])
+
+  function openNote(key: string, btn: HTMLElement) {
+    const rect = btn.getBoundingClientRect()
+    setNotePos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+    setEditingNote(key)
+    setNoteDraft(notes[key] ?? '')
+  }
+
+  function saveNote(key: string) {
+    const trimmed = noteDraft.trim()
+    const updated = { ...notes }
+    if (trimmed) updated[key] = trimmed
+    else delete updated[key]
+    setNotes(updated)
+    try { localStorage.setItem('perf-notes', JSON.stringify(updated)) } catch {}
+    setEditingNote(null)
+  }
 
   const toggleYear = (year: number) =>
     setCollapsedYears(prev => {
       const next = new Set(prev)
       next.has(year) ? next.delete(year) : next.add(year)
-      return next
-    })
-
-  const toggleExclude = (key: string) =>
-    setExcludedMonths(prev => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
       return next
     })
 
@@ -187,6 +247,7 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
   const totTier1 = data.reduce((s, d) => s + d.tier1, 0)
 
   return (
+    <>
     <div className="performance-tiers">
       <h2>Performance Tiers</h2>
       <div className="table-wrapper">
@@ -203,6 +264,7 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
               <th className="col-divider">Principal</th>
               <th>Tier 1</th>
               <th>Tier 1 YTD</th>
+              <th className="note-cell" />
             </tr>
           </thead>
           <tbody>
@@ -257,6 +319,20 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
                           <td className="col-divider positive">{formatCurrency(d.principal)}</td>
                           <td className={d.tier1 < 0 ? 'negative' : ''}>{formatCurrency(d.tier1)}</td>
                           <td className={d.tier1Ytd < 0 ? 'negative' : ''}>{formatCurrency(d.tier1Ytd)}</td>
+                          <td className="note-cell">
+                            <div className="note-wrapper">
+                              <button
+                                className={`note-btn${notes[d.key] ? ' note-btn--active' : ''}${editingNote === d.key ? ' note-btn--editing' : ''}`}
+                                onClick={e => openNote(d.key, e.currentTarget)}
+                                aria-label={notes[d.key] ? 'Edit note' : 'Add note'}
+                              >
+                                {notes[d.key] ? '●' : '+'}
+                              </button>
+                              {notes[d.key] && editingNote !== d.key && (
+                                <div className="note-tooltip">{notes[d.key]}</div>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       </>
                     )
@@ -273,6 +349,7 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
                       <td className="col-divider positive">{formatCurrency(group.reduce((s, d) => s + d.principal, 0))}</td>
                       <td className={lastRow.tier1Ytd < 0 ? 'negative' : ''}>{formatCurrency(lastRow.tier1Ytd)}</td>
                       <td>—</td>
+                      <td className="note-cell" />
                     </tr>
                   )}
                 </>
@@ -289,10 +366,37 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
               <td className="col-divider positive">{formatCurrency(totPrincipal)}</td>
               <td className={totTier1 < 0 ? 'negative' : ''}>{formatCurrency(totTier1)}</td>
               <td>—</td>
+              <td className="note-cell" />
             </tr>
           </tbody>
         </table>
       </div>
     </div>
+    {editingNote && notePos && createPortal(
+      <div
+        className="note-popover"
+        style={{ top: notePos.top, right: notePos.right }}
+      >
+        <textarea
+          ref={textareaRef}
+          className="note-textarea"
+          autoFocus
+          value={noteDraft}
+          onChange={e => {
+            setNoteDraft(e.target.value)
+            e.target.style.height = 'auto'
+            e.target.style.height = e.target.scrollHeight + 'px'
+          }}
+          onBlur={() => saveNote(editingNote)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote(editingNote) }
+            if (e.key === 'Escape') setEditingNote(null)
+          }}
+          placeholder="Add a note…"
+        />
+      </div>,
+      document.body
+    )}
+    </>
   )
 }

@@ -4,7 +4,6 @@ import { useExpenses } from './features/expenses/useExpenses'
 import { BookingForm } from './features/booking-input/BookingForm'
 import { BookingList } from './features/booking-table/BookingList'
 import { ExpenseForm } from './features/expenses/ExpenseForm'
-import { MonthlyBreakdown } from './features/monthly-chart/MonthlyBreakdown'
 import { OccupancyTable } from './features/occupancy/OccupancyTable'
 import { PerformanceTiers } from './features/performance/PerformanceTiers'
 import './App.css'
@@ -14,7 +13,6 @@ const TABS = [
   { path: '/bookings', label: 'Booking' },
   { path: '/occupancy', label: 'Occupancy' },
   { path: '/expenses', label: 'Expenses' },
-  { path: '/monthly', label: 'Monthly Breakdown' },
 ]
 
 function App() {
@@ -57,12 +55,6 @@ function App() {
           <Route path="/expenses" element={
             <section className="card">
               <ExpenseForm expenses={expenses} onSubmit={setExpense} />
-            </section>
-          } />
-
-          <Route path="/monthly" element={
-            <section className="card">
-              <MonthlyBreakdown bookings={bookings} expenses={expenses} />
             </section>
           } />
 
