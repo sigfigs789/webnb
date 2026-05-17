@@ -1,3 +1,4 @@
+import { useState, Fragment } from 'react'
 import {
   BarChart,
   Bar,
@@ -128,18 +129,21 @@ function yAxisFormatter(v: number) {
 
 export function MonthlyBreakdown({ bookings, expenses }: Props) {
   const data = mergeData(bookings, expenses)
+  const displayData = data.map(d =>
+    d.revenue > 0 ? d : { ...d, totalExpenses: 0, net: 0 }
+  )
 
-  const totalRevenue = data.reduce((s, d) => s + d.revenue, 0)
-  const totalExpenses = data.reduce((s, d) => s + d.totalExpenses, 0)
+  const totalRevenue = displayData.reduce((s, d) => s + d.revenue, 0)
+  const totalExpenses = displayData.reduce((s, d) => s + d.totalExpenses, 0)
   const totalNet = totalRevenue - totalExpenses
-  const totalPrincipal = data.reduce((s, d) => s + (d.principal ?? 0), 0)
-  const totalFixedCosts = data.reduce((s, d) => s + (d.fixedCosts ?? 0), 0)
+  const totalPrincipal = displayData.reduce((s, d) => s + (d.principal ?? 0), 0)
+  const totalFixedCosts = displayData.reduce((s, d) => s + (d.fixedCosts ?? 0), 0)
 
   return (
     <div className="monthly-breakdown">
       <h2>Monthly Breakdown</h2>
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+        <BarChart data={displayData} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis dataKey="label" tick={{ fontSize: 12 }} />
           <YAxis tickFormatter={yAxisFormatter} tick={{ fontSize: 12 }} width={55} />
@@ -168,7 +172,7 @@ export function MonthlyBreakdown({ bookings, expenses }: Props) {
             </tr>
           </thead>
           <tbody>
-            {data.map(d => (
+            {displayData.map(d => (
               <tr key={d.key}>
                 <td>{d.label}</td>
                 <td>{formatCurrency(d.revenue)}</td>

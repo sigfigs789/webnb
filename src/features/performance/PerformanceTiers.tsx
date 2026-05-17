@@ -113,7 +113,7 @@ function formatCurrency(n: number) {
 
 export function PerformanceTiers({ bookings, expenses }: Props) {
   const data = mergePerf(bookings, expenses)
-  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set())
+  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set([2023, 2024, 2025]))
 
   const toggleYear = (year: number) =>
     setCollapsedYears(prev => {
