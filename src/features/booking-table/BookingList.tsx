@@ -102,8 +102,9 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Revenue</th>
+              <th>Gross Revenue</th>
               <th>Pass Through Tax</th>
+              <th>Net Revenue</th>
               <th>Booking Date</th>
               <th>Check-in</th>
               <th>Check-out</th>
@@ -118,7 +119,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
               return (
                 <Fragment key={`year-${year}`}>
                   <tr className="year-header-row">
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <button
                         className="year-toggle"
                         onClick={() => toggleYear(year)}
@@ -133,7 +134,9 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                     <tr className="year-summary-row">
                       <td className="year-summary-label">{group.length} bookings hidden</td>
                       <td>{formatCurrency(yearRevenue)}</td>
-                      <td colSpan={5}>—</td>
+                      <td>{formatCurrency(group.reduce((s, b) => s + b.passThroughTax, 0))}</td>
+                      <td>{formatCurrency(yearRevenue - group.reduce((s, b) => s + b.passThroughTax, 0))}</td>
+                      <td colSpan={4}>—</td>
                     </tr>
                   ) : (
                     group.map(b => {
@@ -183,6 +186,12 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                             ) : (
                               formatCurrency(b.passThroughTax)
                             )}
+                          </td>
+                          <td>
+                            {isEditing
+                              ? formatCurrency(Number(editValues!.revenue) - (Number(editValues!.passThroughTax) || 0))
+                              : formatCurrency(b.revenue - b.passThroughTax)
+                            }
                           </td>
                           <td>
                             {isEditing ? (

@@ -243,7 +243,8 @@ th {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   border-bottom: 2px solid #e2e8f0;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 6rem;
 }
 
 td {

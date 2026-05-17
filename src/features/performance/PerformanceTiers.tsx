@@ -255,7 +255,7 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
           <thead>
             <tr>
               <th>Month</th>
-              <th>Revenue</th>
+              <th>Gross Revenue</th>
               <th>Fixed Costs</th>
               <th>Variable Exp</th>
               <th>Taxes</th>
