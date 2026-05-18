@@ -176,7 +176,10 @@ const COL_COUNT = 11
 
 export function PerformanceTiers({ bookings, expenses }: Props) {
   const data = mergePerf(bookings, expenses)
-  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set([2023, 2024, 2025]))
+  const thisYear = new Date().getFullYear()
+  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
+    () => new Set(Array.from(new Set(data.map(d => d.year))).filter(y => y < thisYear - 1))
+  )
   const { excludedMonths, toggleExclude } = useExcludedMonths()
   const { notes, saveNote: persistNote } = usePerformanceNotes()
   const [editingNote, setEditingNote] = useState<string | null>(null)
@@ -302,10 +305,10 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
                           <td>{formatCurrency(d.variableExpenses)}</td>
                           <td>{formatCurrency(d.taxes)}</td>
                           <td className={`col-divider${d.tier2 < 0 ? ' negative' : ''}`}>{formatCurrency(d.tier2)}</td>
-                          <td className={d.tier2Ytd < 0 ? 'negative' : ''}>{formatCurrency(d.tier2Ytd)}</td>
+                          <td>{formatCurrency(d.tier2Ytd)}</td>
                           <td className="col-divider positive">{formatCurrency(d.principal)}</td>
                           <td className={d.tier1 < 0 ? 'negative' : ''}>{formatCurrency(d.tier1)}</td>
-                          <td className={d.tier1Ytd < 0 ? 'negative' : ''}>{formatCurrency(d.tier1Ytd)}</td>
+                          <td>{formatCurrency(d.tier1Ytd)}</td>
                           <td className="note-cell">
                             <div className="note-wrapper">
                               <button
@@ -326,15 +329,15 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
                   })}
                   {collapsed && (
                     <tr key={`year-${year}-summary`} className="year-summary-row">
-                      <td className="year-summary-label">12 months hidden</td>
+                      <td className="year-summary-label">{group.length} {group.length === 1 ? 'month' : 'months'} hidden</td>
                       <td className="positive">{formatCurrency(group.reduce((s, d) => s + d.revenue, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.fixedCosts, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.variableExpenses, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.taxes, 0))}</td>
-                      <td className={`col-divider${lastRow.tier2Ytd < 0 ? ' negative' : ''}`}>{formatCurrency(lastRow.tier2Ytd)}</td>
+                      <td className="col-divider">{formatCurrency(lastRow.tier2Ytd)}</td>
                       <td>—</td>
                       <td className="col-divider positive">{formatCurrency(group.reduce((s, d) => s + d.principal, 0))}</td>
-                      <td className={lastRow.tier1Ytd < 0 ? 'negative' : ''}>{formatCurrency(lastRow.tier1Ytd)}</td>
+                      <td>{formatCurrency(lastRow.tier1Ytd)}</td>
                       <td>—</td>
                       <td className="note-cell" />
                     </tr>

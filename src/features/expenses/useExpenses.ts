@@ -4,6 +4,7 @@ import { MonthExpense } from '../../shared/types'
 
 export function useExpenses() {
   const [expenses, setExpenses] = useState<MonthExpense[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     supabase
@@ -11,6 +12,7 @@ export function useExpenses() {
       .select('*')
       .then(({ data, error }) => {
         if (!error && data) setExpenses(data.map(toExpense))
+        setLoading(false)
       })
   }, [])
 
@@ -38,7 +40,7 @@ export function useExpenses() {
     if (!error) setExpenses(prev => prev.filter(e => e.id !== id))
   }
 
-  return { expenses, setExpense, deleteExpense }
+  return { expenses, loading, setExpense, deleteExpense }
 }
 
 function toExpense(row: Record<string, unknown>): MonthExpense {

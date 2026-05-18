@@ -622,8 +622,7 @@ td.note-cell {
 
 .note-popover {
   position: fixed;
-  width: 10vw;
-  min-width: 140px;
+  width: 260px;
   z-index: 1000;
 }
 
@@ -644,6 +643,14 @@ td.note-cell {
   overflow: hidden;
   line-height: 1.5;
   box-sizing: border-box;
+}
+
+/* ── Loading state ───────────────────────────────────── */
+.loading-state {
+  color: #a0aec0;
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 2.5rem 1rem;
 }
 
 /* ── Mobile overrides ────────────────────────────────── */

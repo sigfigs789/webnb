@@ -10,7 +10,6 @@ interface Props {
 type EditValues = {
   name: string
   revenue: string
-  passThroughTax: string
   bookingDate: string
   startDate: string
   endDate: string
@@ -36,14 +35,16 @@ function formatCurrency(n: number) {
 export function BookingList({ bookings, onUpdate, onDelete }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<EditValues | null>(null)
-  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set([2023, 2024]))
+  const currentYear = new Date().getFullYear()
+  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
+    () => new Set(bookings.map(b => Number(b.startDate.slice(0, 4))).filter(y => y < currentYear - 1))
+  )
 
   function startEdit(b: Booking) {
     setEditingId(b.id)
     setEditValues({
       name: b.name,
       revenue: String(b.revenue),
-      passThroughTax: String(b.passThroughTax),
       bookingDate: b.bookingDate,
       startDate: b.startDate,
       endDate: b.endDate,
@@ -57,10 +58,11 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
 
   function saveEdit() {
     if (!editingId || !editValues) return
+    const existing = bookings.find(b => b.id === editingId)
     onUpdate(editingId, {
       name: editValues.name.trim(),
       revenue: Number(editValues.revenue),
-      passThroughTax: Number(editValues.passThroughTax) || 0,
+      passThroughTax: existing?.passThroughTax ?? 0,
       bookingDate: editValues.bookingDate,
       startDate: editValues.startDate,
       endDate: editValues.endDate,
@@ -110,8 +112,6 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
             <tr>
               <th>Name</th>
               <th>Gross Revenue</th>
-              <th>Pass Through Tax</th>
-              <th>Net Revenue</th>
               <th>Booking Date</th>
               <th>Check-in</th>
               <th>Check-out</th>
@@ -127,7 +127,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
               return (
                 <Fragment key={`year-${year}`}>
                   <tr className="year-header-row">
-                    <td colSpan={9}>
+                    <td colSpan={7}>
                       <button
                         className="year-toggle"
                         onClick={() => toggleYear(year)}
@@ -142,8 +142,6 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                     <tr className="year-summary-row">
                       <td className="year-summary-label">{group.length} bookings hidden</td>
                       <td>{formatCurrency(yearRevenue)}</td>
-                      <td>{formatCurrency(group.reduce((s, b) => s + b.passThroughTax, 0))}</td>
-                      <td>{formatCurrency(yearRevenue - group.reduce((s, b) => s + b.passThroughTax, 0))}</td>
                       <td colSpan={5}>—</td>
                     </tr>
                   ) : (
@@ -180,26 +178,6 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                             ) : (
                               formatCurrency(b.revenue)
                             )}
-                          </td>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                value={editValues!.passThroughTax}
-                                onChange={e => setField('passThroughTax', e.target.value)}
-                                min="0"
-                                step="any"
-                                onClick={e => e.stopPropagation()}
-                              />
-                            ) : (
-                              formatCurrency(b.passThroughTax)
-                            )}
-                          </td>
-                          <td>
-                            {isEditing
-                              ? formatCurrency(Number(editValues!.revenue) - (Number(editValues!.passThroughTax) || 0))
-                              : formatCurrency(b.revenue - b.passThroughTax)
-                            }
                           </td>
                           <td>
                             {isEditing ? (
@@ -251,7 +229,9 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                                   <button className="btn-sm btn-secondary" onClick={cancelEdit}>Cancel</button>
                                 </>
                               ) : (
-                                <button className="btn-sm btn-danger" onClick={() => onDelete(b.id)}>
+                                <button className="btn-sm btn-danger" onClick={() => {
+                                  if (window.confirm(`Delete booking for "${b.name}"?`)) onDelete(b.id)
+                                }}>
                                   Delete
                                 </button>
                               )}

@@ -16,8 +16,9 @@ const TABS = [
 ]
 
 function App() {
-  const { bookings, addBooking, updateBooking, deleteBooking } = useBookings()
-  const { expenses, setExpense } = useExpenses()
+  const { bookings, loading: bookingsLoading, addBooking, updateBooking, deleteBooking } = useBookings()
+  const { expenses, loading: expensesLoading, setExpense } = useExpenses()
+  const isLoading = bookingsLoading || expensesLoading
 
   return (
     <div className="app">
@@ -38,6 +39,9 @@ function App() {
       </nav>
 
       <main className="app-main">
+        {isLoading ? (
+          <div className="loading-state">Loading…</div>
+        ) : (
         <Routes>
           <Route path="/" element={<Navigate to="/performance" replace />} />
 
@@ -70,6 +74,7 @@ function App() {
             </section>
           } />
         </Routes>
+        )}
       </main>
     </div>
   )
