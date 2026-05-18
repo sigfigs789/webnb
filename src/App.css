@@ -538,12 +538,6 @@ tr.expense-divider td::before {
   background: #e2e8f0;
 }
 
-/* ── Expected reference row ──────────────────────────── */
-tr.expense-row--expected td {
-  color: #2c5282;
-  font-style: italic;
-}
-
 /* ── Empty state ─────────────────────────────────────── */
 .empty-state {
   color: #a0aec0;
@@ -602,7 +596,8 @@ td.note-cell {
   font-style: normal;
   padding: 0.4rem 0.65rem;
   border-radius: 6px;
-  max-width: 260px;
+  width: 50vw;
+  max-width: 600px;
   white-space: pre-wrap;
   word-break: break-word;
   z-index: 20;
