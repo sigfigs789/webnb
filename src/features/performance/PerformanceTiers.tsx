@@ -178,7 +178,7 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
   const data = mergePerf(bookings, expenses)
   const thisYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
-    () => new Set(Array.from(new Set(data.map(d => d.year))).filter(y => y < thisYear - 1))
+    () => new Set(Array.from(new Set(data.map(d => d.year))).filter(y => y < thisYear))
   )
   const { excludedMonths, toggleExclude } = useExcludedMonths()
   const { notes, saveNote: persistNote } = usePerformanceNotes()

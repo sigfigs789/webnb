@@ -37,7 +37,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
   const [editValues, setEditValues] = useState<EditValues | null>(null)
   const currentYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
-    () => new Set(bookings.map(b => Number(b.startDate.slice(0, 4))).filter(y => y < currentYear - 1))
+    () => new Set(bookings.map(b => Number(b.startDate.slice(0, 4))).filter(y => y < currentYear))
   )
 
   function startEdit(b: Booking) {
