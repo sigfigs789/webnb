@@ -144,7 +144,8 @@ function formatCurrency(n: number) {
 const COL_COUNT = 11
 
 export function PerformanceTiers({ bookings, expenses }: Props) {
-  const { actualTaxes } = useActualTaxes()
+  const { actualTaxes, upsertTax } = useActualTaxes()
+  const [taxDrafts, setTaxDrafts] = useState<Record<string, string>>({})
   const data = mergePerf(bookings, expenses, actualTaxes)
   const thisYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
@@ -273,7 +274,21 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
                           <td className="positive">{formatCurrency(d.revenue)}</td>
                           <td>{formatCurrency(d.fixedCosts)}</td>
                           <td>{formatCurrency(d.variableExpenses)}</td>
-                          <td>{formatCurrency(d.taxes)}</td>
+                          <td>
+                            <input
+                              className="expense-input"
+                              type="number"
+                              min="0"
+                              value={taxDrafts[d.key] ?? d.taxes}
+                              onChange={e => setTaxDrafts(prev => ({ ...prev, [d.key]: e.target.value }))}
+                              onBlur={e => {
+                                const val = Math.round(Math.max(0, Number(e.target.value) || 0))
+                                setTaxDrafts(prev => { const next = { ...prev }; delete next[d.key]; return next })
+                                upsertTax(d.year, d.month, val)
+                              }}
+                              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                            />
+                          </td>
                           <td className={`col-divider${d.tier2 < 0 ? ' negative' : ''}`}>{formatCurrency(d.tier2)}</td>
                           <td>{formatCurrency(d.tier2Ytd)}</td>
                           <td className="col-divider positive">{formatCurrency(d.principal)}</td>

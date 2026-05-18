@@ -299,6 +299,10 @@ tr.row-editing input {
   width: auto;
 }
 
+.performance-tiers .expense-input {
+  width: 72px;
+}
+
 /* ── Monthly chart ───────────────────────────────────── */
 .monthly-breakdown table {
   margin-top: 1.75rem;

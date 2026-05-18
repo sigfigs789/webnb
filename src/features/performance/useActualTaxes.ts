@@ -21,5 +21,13 @@ export function useActualTaxes() {
       })
   }, [])
 
-  return { actualTaxes, loading }
+  async function upsertTax(year: number, month: number, amount: number) {
+    const key = `${year}-${String(month).padStart(2, '0')}`
+    setActualTaxes(prev => ({ ...prev, [key]: amount }))
+    await supabase
+      .from('actual_taxes')
+      .upsert({ year, month, amount }, { onConflict: 'year,month' })
+  }
+
+  return { actualTaxes, loading, upsertTax }
 }
