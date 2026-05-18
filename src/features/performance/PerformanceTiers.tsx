@@ -7,45 +7,14 @@ import { getFixedCosts } from '../../shared/fixedCosts'
 import { EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
 import { useExcludedMonths } from './useExcludedMonths'
 import { usePerformanceNotes } from './usePerformanceNotes'
+import { useActualTaxes } from './useActualTaxes'
 
 const TAX_RATE = 0.04712 + 0.03 + 0.1025
 
-const ACTUAL_TAXES: Record<string, number> = {
-  '2023-12': 621,
-  '2024-01': 574,
-  '2024-02': 0,
-  '2024-03': 596,
-  '2024-04': 529,
-  '2024-05': 546,
-  '2024-06': 749,
-  '2024-07': 403,
-  '2024-08': 582,
-  '2024-09': 540,
-  '2024-10': 20,
-  '2024-11': 1045,
-  '2024-12': 909,
-  '2025-01': 965,
-  '2025-02': 60,
-  '2025-03': 60,
-  '2025-04': 0,
-  '2025-05': 725,
-  '2025-06': 873,
-  '2025-07': 808,
-  '2025-08': 866,
-  '2025-09': 750,
-  '2025-10': 0,
-  '2025-11': 739,
-  '2025-12': 843,
-  '2026-01': 947,
-  '2026-02': 59,
-  '2026-03': 35,
-  '2026-04': 526,
-}
-
-function getTax(key: string, year: number, month: number, netRevenue: number): number {
+function getTax(key: string, year: number, month: number, netRevenue: number, actualTaxes: Record<string, number>): number {
   const now = new Date()
   const isPast = year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)
-  if (isPast && key in ACTUAL_TAXES) return ACTUAL_TAXES[key]
+  if (isPast && key in actualTaxes) return actualTaxes[key]
   return netRevenue * TAX_RATE
 }
 
@@ -72,7 +41,7 @@ interface MonthPerf {
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-function mergePerf(bookings: Booking[], expenses: MonthExpense[]): MonthPerf[] {
+function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: Record<string, number>): MonthPerf[] {
   const map = new Map<string, MonthPerf>()
 
   for (const { year, month } of allPrincipalMonths()) {
@@ -100,7 +69,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[]): MonthPerf[] {
 
   for (const rev of aggregateMonthlyRevenue(bookings)) {
     const key = `${rev.year}-${String(rev.month).padStart(2, '0')}`
-    const taxes = getTax(key, rev.year, rev.month, rev.netRevenue)
+    const taxes = getTax(key, rev.year, rev.month, rev.netRevenue, actualTaxes)
     const existing = map.get(key)
     if (existing) {
       existing.revenue = rev.revenue
@@ -175,7 +144,8 @@ function formatCurrency(n: number) {
 const COL_COUNT = 11
 
 export function PerformanceTiers({ bookings, expenses }: Props) {
-  const data = mergePerf(bookings, expenses)
+  const { actualTaxes } = useActualTaxes()
+  const data = mergePerf(bookings, expenses, actualTaxes)
   const thisYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
     () => new Set(Array.from(new Set(data.map(d => d.year))).filter(y => y < thisYear))
