@@ -146,6 +146,7 @@ const COL_COUNT = 11
 export function PerformanceTiers({ bookings, expenses }: Props) {
   const { actualTaxes, upsertTax } = useActualTaxes()
   const [taxDrafts, setTaxDrafts] = useState<Record<string, string>>({})
+  const taxOriginalsRef = useRef<Record<string, number>>({})
   const data = mergePerf(bookings, expenses, actualTaxes)
   const thisYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
@@ -280,11 +281,18 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
                               type="number"
                               min="0"
                               value={taxDrafts[d.key] ?? d.taxes}
+                              onFocus={() => { taxOriginalsRef.current[d.key] = d.taxes }}
                               onChange={e => setTaxDrafts(prev => ({ ...prev, [d.key]: e.target.value }))}
                               onBlur={e => {
+                                const original = taxOriginalsRef.current[d.key] ?? d.taxes
                                 const val = Math.round(Math.max(0, Number(e.target.value) || 0))
                                 setTaxDrafts(prev => { const next = { ...prev }; delete next[d.key]; return next })
-                                upsertTax(d.year, d.month, val)
+                                if (val !== original) {
+                                  const ok = window.confirm(
+                                    `Change tax for ${d.label} from $${original} to $${val}?`
+                                  )
+                                  if (ok) upsertTax(d.year, d.month, val)
+                                }
                               }}
                               onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                             />
