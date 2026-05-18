@@ -22,14 +22,14 @@ export function useExcludedMonths() {
       })
   }, [])
 
-  function toggleExclude(key: string) {
+  async function toggleExclude(key: string) {
     const nowExcluded = !excludedMonths.has(key)
     setExcludedMonths(prev => {
       const next = new Set(prev)
       nowExcluded ? next.add(key) : next.delete(key)
       return next
     })
-    supabase
+    await supabase
       .from('excluded_months')
       .upsert({ month_key: key, excluded: nowExcluded }, { onConflict: 'month_key' })
   }
