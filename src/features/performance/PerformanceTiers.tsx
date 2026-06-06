@@ -8,6 +8,7 @@ import { EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
 import { useExcludedMonths } from './useExcludedMonths'
 import { usePerformanceNotes } from './usePerformanceNotes'
 import { useActualTaxes } from './useActualTaxes'
+import { useOccupancy, OccupancyEntry } from '../occupancy/useOccupancy'
 
 const TAX_RATE = 0.04712 + 0.03 + 0.1025
 
@@ -41,12 +42,29 @@ interface MonthPerf {
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: Record<string, number>): MonthPerf[] {
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate()
+}
+
+function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: Record<string, number>, occupancyEntries: OccupancyEntry[]): MonthPerf[] {
+  const occupancyMap = new Map<string, number>()
+  for (const e of occupancyEntries) {
+    occupancyMap.set(`${e.year}-${String(e.month).padStart(2, '0')}`, e.ourDays)
+  }
+
+  function adjustedFixedCosts(key: string, year: number, month: number): number {
+    const full = getFixedCosts(year, month) ?? 0
+    const ourDays = occupancyMap.get(key) ?? 0
+    if (ourDays <= 0) return full
+    const daysInMonth = getDaysInMonth(year, month)
+    return full * Math.max(0, (daysInMonth - ourDays) / daysInMonth)
+  }
+
   const map = new Map<string, MonthPerf>()
 
   for (const { year, month } of allPrincipalMonths()) {
     const key = `${year}-${String(month).padStart(2, '0')}`
-    const fixedCosts = getFixedCosts(year, month) ?? 0
+    const fixedCosts = adjustedFixedCosts(key, year, month)
     const principal = getPrincipalGained(year, month) ?? 0
     const varExp = EXPECTED_VAR_TOTAL
     const allExpenses = varExp + fixedCosts
@@ -78,7 +96,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
       existing.tier2 = rev.revenue - existing.allExpenses
       existing.tier1 = rev.revenue + existing.principal - existing.allExpenses
     } else {
-      const fixedCosts = getFixedCosts(rev.year, rev.month) ?? 0
+      const fixedCosts = adjustedFixedCosts(key, rev.year, rev.month)
       const principal = getPrincipalGained(rev.year, rev.month) ?? 0
       const varExp = EXPECTED_VAR_TOTAL
       const allExpenses = varExp + fixedCosts + taxes
@@ -111,7 +129,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
       existing.tier1 = existing.revenue + existing.principal - existing.allExpenses
       existing.hasActualExpenses = true
     } else {
-      const fixedCosts = getFixedCosts(exp.year, exp.month) ?? 0
+      const fixedCosts = adjustedFixedCosts(key, exp.year, exp.month)
       const principal = getPrincipalGained(exp.year, exp.month) ?? 0
       const allExpenses = varExp + fixedCosts
       map.set(key, {
@@ -145,9 +163,10 @@ const COL_COUNT = 11
 
 export function PerformanceTiers({ bookings, expenses }: Props) {
   const { actualTaxes, upsertTax } = useActualTaxes()
+  const { entries: occupancyEntries } = useOccupancy()
   const [taxDrafts, setTaxDrafts] = useState<Record<string, string>>({})
   const taxOriginalsRef = useRef<Record<string, number>>({})
-  const data = mergePerf(bookings, expenses, actualTaxes)
+  const data = mergePerf(bookings, expenses, actualTaxes, occupancyEntries)
   const thisYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
     () => new Set(Array.from(new Set(data.map(d => d.year))).filter(y => y < thisYear))
