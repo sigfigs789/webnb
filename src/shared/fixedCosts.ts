@@ -13,3 +13,8 @@ export function getFixedCosts(year: number, month: number): number | null {
   if ((year === 2026 || year === 2027) && month >= 1 && month <= 12) return FIXED_2026_2027
   return null
 }
+
+export function applyOurDaysAdjustment(fullCost: number, ourDays: number, daysInMonth: number): number {
+  if (ourDays <= 0) return fullCost
+  return fullCost * Math.max(0, (daysInMonth - ourDays) / daysInMonth)
+}

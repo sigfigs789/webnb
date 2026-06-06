@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Booking, MonthExpense } from '../../shared/types'
 import { aggregateMonthlyRevenue } from '../../shared/revenueDistribution'
 import { getPrincipalGained, allPrincipalMonths } from '../../shared/principalGained'
-import { getFixedCosts } from '../../shared/fixedCosts'
+import { getFixedCosts, applyOurDaysAdjustment } from '../../shared/fixedCosts'
 import { EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
 import { useExcludedMonths } from './useExcludedMonths'
 import { usePerformanceNotes } from './usePerformanceNotes'
@@ -55,9 +55,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
   function adjustedFixedCosts(key: string, year: number, month: number): number {
     const full = getFixedCosts(year, month) ?? 0
     const ourDays = occupancyMap.get(key) ?? 0
-    if (ourDays <= 0) return full
-    const daysInMonth = getDaysInMonth(year, month)
-    return full * Math.max(0, (daysInMonth - ourDays) / daysInMonth)
+    return applyOurDaysAdjustment(full, ourDays, getDaysInMonth(year, month))
   }
 
   const map = new Map<string, MonthPerf>()
