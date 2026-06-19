@@ -12,10 +12,8 @@ import { useOccupancy, OccupancyEntry } from '../occupancy/useOccupancy'
 
 const TAX_RATE = 0.04712 + 0.03 + 0.1025
 
-function getTax(key: string, year: number, month: number, netRevenue: number, actualTaxes: Record<string, number>): number {
-  const now = new Date()
-  const isPast = year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)
-  if (isPast && key in actualTaxes) return actualTaxes[key]
+function getTax(key: string, netRevenue: number, actualTaxes: Record<string, number>): number {
+  if (key in actualTaxes) return actualTaxes[key]
   return netRevenue * TAX_RATE
 }
 
@@ -85,7 +83,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
 
   for (const rev of aggregateMonthlyRevenue(bookings)) {
     const key = `${rev.year}-${String(rev.month).padStart(2, '0')}`
-    const taxes = getTax(key, rev.year, rev.month, rev.netRevenue, actualTaxes)
+    const taxes = getTax(key, rev.netRevenue, actualTaxes)
     const existing = map.get(key)
     if (existing) {
       existing.revenue = rev.revenue
