@@ -10,12 +10,7 @@ import { usePerformanceNotes } from './usePerformanceNotes'
 import { useActualTaxes } from './useActualTaxes'
 import { useOccupancy, OccupancyEntry } from '../occupancy/useOccupancy'
 
-const TAX_RATE = 0.04712 + 0.03 + 0.1025
-
-function getTax(key: string, netRevenue: number, actualTaxes: Record<string, number>): number {
-  if (key in actualTaxes) return actualTaxes[key]
-  return netRevenue * TAX_RATE
-}
+import { getTax } from '../../shared/taxCalculation'
 
 interface Props {
   bookings: Booking[]
