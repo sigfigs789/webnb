@@ -16,3 +16,10 @@ jobs:
             -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZ3RkbGl6c3BhaXRmcmVwb2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMjk2MDAsImV4cCI6MjA5NDYwNTYwMH0.NL8Q8Zo0UrsBvTmweMZkb4FH5CuR7-LTNX8YGUZKLQ4" \
             "https://rhgtdlizspaitfrepogy.supabase.co/rest/v1/" \
             && echo "Supabase is alive"
+      - name: Ping Supabase
+        run: |
+          RESPONSE=$(curl -sS -w "\nHTTP_CODE:%{http_code}" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZ3RkbGl6c3BhaXRmcmVwb2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMjk2MDAsImV4cCI6MjA5NDYwNTYwMH0.NL8Q8Zo0UrsBvTmweMZkb4FH5CuR7-LTNX8YGUZKLQ4" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZ3RkbGl6c3BhaXRmcmVwb2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMjk2MDAsImV4cCI6MjA5NDYwNTYwMH0.NL8Q8Zo0UrsBvTmweMZkb4FH5CuR7-LTNX8YGUZKLQ4" \
+            "https://rhgtdlizspaitfrepogy.supabase.co/rest/v1/")
+          echo "$RESPONSE"
