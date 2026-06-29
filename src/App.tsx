@@ -19,7 +19,7 @@ const WIDE_ROUTES = new Set(TABS.map(tab => tab.path))
 
 function App() {
   const { bookings, loading: bookingsLoading, addBooking, updateBooking, deleteBooking } = useBookings()
-  const { expenses, loading: expensesLoading, setExpense } = useExpenses()
+  const { expenses, loading: expensesLoading, setExpense, updateFutureExpectedExpenses } = useExpenses()
   const isLoading = bookingsLoading || expensesLoading
   const location = useLocation()
   const isWideRoute = WIDE_ROUTES.has(location.pathname)
@@ -62,7 +62,11 @@ function App() {
 
           <Route path="/expenses" element={
             <section className="card">
-              <ExpenseForm expenses={expenses} onSubmit={setExpense} />
+              <ExpenseForm
+                expenses={expenses}
+                onSubmit={setExpense}
+                onUpdateFutureExpected={updateFutureExpectedExpenses}
+              />
             </section>
           } />
 

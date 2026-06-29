@@ -48,9 +48,16 @@ function getDaysInMonth(year: number, month: number): number {
 }
 
 function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: Record<string, number>, occupancyEntries: OccupancyEntry[]): MonthPerf[] {
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth() + 1
   const occupancyMap = new Map<string, number>()
   for (const e of occupancyEntries) {
     occupancyMap.set(`${e.year}-${String(e.month).padStart(2, '0')}`, e.ourDays)
+  }
+
+  function isPastMonth(year: number, month: number) {
+    return year < currentYear || (year === currentYear && month < currentMonth)
   }
 
   function adjustedFixedCosts(key: string, year: number, month: number): number {
@@ -133,6 +140,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
     const key = `${exp.year}-${String(exp.month).padStart(2, '0')}`
     const { cleaning, support, misc } = exp
     const varExp = cleaning + support + misc
+    const hasActualExpenses = isPastMonth(exp.year, exp.month)
     const existing = map.get(key)
     if (existing) {
       existing.cleaning = cleaning
@@ -142,7 +150,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
       existing.allExpenses = varExp + existing.fixedCosts + existing.taxes
       existing.tier2 = existing.revenue - existing.allExpenses
       existing.tier1 = existing.revenue + existing.principal - existing.allExpenses
-      existing.hasActualExpenses = true
+      existing.hasActualExpenses = hasActualExpenses
     } else {
       const fixedCosts = adjustedFixedCosts(key, exp.year, exp.month)
       const principal = getPrincipalGained(exp.year, exp.month) ?? 0
@@ -163,7 +171,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
         principal,
         tier2: -allExpenses,
         tier1: principal - allExpenses,
-        hasActualExpenses: true,
+        hasActualExpenses,
       })
     }
   }
@@ -352,8 +360,9 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                             <td key={key}>
                               <input
                                 className="expense-input"
-                                type="number"
-                                min="0"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={expenseDrafts[d.key]?.[key] ?? d[key]}
                                 onFocus={() => {
                                   expenseOriginalsRef.current[d.key] = {
@@ -373,8 +382,9 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                           <td>
                             <input
                               className="expense-input"
-                              type="number"
-                              min="0"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               value={taxDrafts[d.key] ?? d.taxes}
                               onFocus={() => { taxOriginalsRef.current[d.key] = d.taxes }}
                               onChange={e => setTaxDrafts(prev => ({ ...prev, [d.key]: e.target.value }))}

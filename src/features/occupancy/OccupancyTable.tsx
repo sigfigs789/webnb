@@ -18,9 +18,12 @@ const zeroDraft = (): OccupancyDraft => ({ kindredDays: '0', ourDays: '0' })
 export function OccupancyTable({ bookings }: Props) {
   const { entries, setEntry } = useOccupancy()
   const months = aggregateAirbnbDays(bookings)
+  const thisYear = new Date().getFullYear()
 
   const [drafts, setDrafts] = useState<Record<string, OccupancyDraft>>({})
-  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set([2023, 2024]))
+  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
+    () => new Set(Array.from(new Set(months.map(m => m.year))).filter(y => y < thisYear))
+  )
 
   // Sync Supabase data into draft state without overwriting in-progress edits
   useEffect(() => {

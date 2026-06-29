@@ -2,14 +2,15 @@ import React, { useState, useEffect, Fragment } from 'react'
 import { MonthExpense } from '../../shared/types'
 import { getFixedCosts } from '../../shared/fixedCosts'
 import { allPrincipalMonths } from '../../shared/principalGained'
-import { EXPECTED_VAR_COST, EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
+import { EXPECTED_VAR_COST } from '../../shared/expectedVariableCost'
 
 type ExpenseKey = 'cleaning' | 'support' | 'tax' | 'misc'
 type RowDraft = Record<ExpenseKey, string>
 
 interface Props {
   expenses: MonthExpense[]
-  onSubmit: (year: number, month: number, values: Record<ExpenseKey, number>) => void
+  onSubmit: (year: number, month: number, values: Record<ExpenseKey, number>) => void | Promise<void>
+  onUpdateFutureExpected: (values: Pick<MonthExpense, 'cleaning' | 'support' | 'misc'>) => void | Promise<void>
 }
 
 const FIELDS: { key: ExpenseKey; label: string }[] = [
@@ -51,16 +52,27 @@ function formatCurrency(n: number) {
 const ALL_MONTHS = allPrincipalMonths().map(({ year, month }) => monthKey(year, month))
 
 const EXPECTED = EXPECTED_VAR_COST as Partial<Record<ExpenseKey, number>>
-const EXPECTED_TOTAL = EXPECTED_VAR_TOTAL
-
 function expectedValue(field: ExpenseKey) {
   return EXPECTED[field] ?? 0
 }
 
-export function ExpenseForm({ expenses, onSubmit }: Props) {
+export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Props) {
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth() + 1
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({})
   const [orderedKeys, setOrderedKeys] = useState<string[]>(ALL_MONTHS)
-  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set([2023, 2024]))
+  const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
+    () => new Set(Array.from(new Set(ALL_MONTHS.map(k => parseKey(k).year))).filter(y => y < currentYear))
+  )
+  const [futureDraft, setFutureDraft] = useState<RowDraft>(() => ({
+    cleaning: String(expectedValue('cleaning')),
+    support: String(expectedValue('support')),
+    tax: '0',
+    misc: String(expectedValue('misc')),
+  }))
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
 
   // Merge rows arriving from Supabase without overwriting in-progress local edits
   useEffect(() => {
@@ -79,12 +91,12 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
     })
   }, [expenses])
 
-  const today = new Date()
-  const currentYear = today.getFullYear()
-  const currentMonth = today.getMonth() + 1
-
   function isPastMonth(year: number, month: number) {
     return year < currentYear || (year === currentYear && month < currentMonth)
+  }
+
+  function isFutureExpectedMonth(year: number, month: number) {
+    return !isPastMonth(year, month)
   }
 
   const toggleYear = (year: number) =>
@@ -104,6 +116,53 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
       ...prev,
       [key]: { ...(prev[key] ?? zeroDraft()), [field]: value },
     }))
+  }
+
+  function setFutureField(field: ExpenseKey, value: string) {
+    setFutureDraft(prev => ({ ...prev, [field]: value }))
+  }
+
+  function draftNumber(draft: RowDraft | undefined, field: ExpenseKey, fallback: number) {
+    if (!draft) return fallback
+    const value = Number(draft[field])
+    return Number.isFinite(value) ? value : fallback
+  }
+
+  function expectedDisplayValue(key: string, field: ExpenseKey) {
+    return draftNumber(drafts[key], field, expectedValue(field))
+  }
+
+  async function handleUpdateFutureExpected() {
+    const values = {
+      cleaning: Number(futureDraft.cleaning) || 0,
+      support: Number(futureDraft.support) || 0,
+      misc: Number(futureDraft.misc) || 0,
+    }
+
+    setBulkSaving(true)
+    setBulkError(null)
+    try {
+      await onUpdateFutureExpected(values)
+      setDrafts(prev => {
+        const next = { ...prev }
+        for (const key of orderedKeys) {
+          const { year, month } = parseKey(key)
+          if (isFutureExpectedMonth(year, month)) {
+            next[key] = {
+              ...(next[key] ?? zeroDraft()),
+              cleaning: String(values.cleaning),
+              support: String(values.support),
+              misc: String(values.misc),
+            }
+          }
+        }
+        return next
+      })
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Could not update future expected expenses.')
+    } finally {
+      setBulkSaving(false)
+    }
   }
 
   function save(key: string) {
@@ -147,7 +206,7 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
   const colTotals = FIELDS.map(({ key: field }) =>
     orderedKeys.reduce((s, mk) => {
       const { year, month } = parseKey(mk)
-      return s + (isPastMonth(year, month) ? Number(drafts[mk]?.[field]) || 0 : expectedValue(field))
+      return s + (isPastMonth(year, month) ? Number(drafts[mk]?.[field]) || 0 : expectedDisplayValue(mk, field))
     }, 0)
   )
   const grandTotal = colTotals.reduce((s, v) => s + v, 0)
@@ -159,6 +218,26 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
   return (
     <div className="expense-table">
       <h2>Monthly expected expenses</h2>
+
+      <div className="expense-bulk-row">
+        {FIELDS.map(({ key, label }) => (
+          <label key={key} className="expense-bulk-field">
+            <span>{label}</span>
+            <input
+              className="expense-input"
+              type="number"
+              min="0"
+              step="any"
+              value={futureDraft[key]}
+              onChange={e => setFutureField(key, e.target.value)}
+            />
+          </label>
+        ))}
+        <button type="button" onClick={handleUpdateFutureExpected} disabled={bulkSaving}>
+          {bulkSaving ? 'Updating…' : 'Update future expected'}
+        </button>
+      </div>
+      {bulkError && <p className="form-error">{bulkError}</p>}
 
       {orderedKeys.length === 0 ? (
         <p className="empty-state">No expense records yet. Add a month below.</p>
@@ -181,7 +260,7 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
                 const yearColTotals = FIELDS.map(({ key: field }) =>
                   keys.reduce((s, k) => {
                     const { year: y, month: m } = parseKey(k)
-                    return s + (isPastMonth(y, m) ? Number(drafts[k]?.[field]) || 0 : expectedValue(field))
+                    return s + (isPastMonth(y, m) ? Number(drafts[k]?.[field]) || 0 : expectedDisplayValue(k, field))
                   }, 0)
                 )
                 const yearGrandTotal = yearColTotals.reduce((s, v) => s + v, 0)
@@ -213,7 +292,7 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
                         const expected = !isPastMonth(y, m)
                         const fixedCosts = getFixedCosts(y, m)
                         const rowTotal = expected
-                          ? EXPECTED_TOTAL
+                          ? FIELDS.reduce((s, { key: f }) => s + expectedDisplayValue(key, f), 0)
                           : FIELDS.reduce((s, { key: f }) => s + (Number(draft[f]) || 0), 0)
                         const showDivider = key === firstFutureKey
                         return (
@@ -231,7 +310,7 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
                               {FIELDS.map(({ key: field }) => (
                                 <td key={field}>
                                   {expected ? (
-                                    <span className="expected-value">{formatCurrency(expectedValue(field))}</span>
+                                    <span className="expected-value">{formatCurrency(expectedDisplayValue(key, field))}</span>
                                   ) : (
                                     <input
                                       className="expense-input"
