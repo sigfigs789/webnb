@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Ping Supabase
         run: |
-          curl -sf \
+          curl -sS -f \
             -H "apikey: sb_publishable_SThUIT8wLCxYuerYqVC-XQ_YKUEAn1a" \
             "https://rhgtdlizspaitfrepogy.supabase.co/rest/v1/" \
             && echo "Supabase is alive"
