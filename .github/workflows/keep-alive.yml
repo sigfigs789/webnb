@@ -13,5 +13,6 @@ jobs:
         run: |
           curl -sS -f \
             -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZ3RkbGl6c3BhaXRmcmVwb2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMjk2MDAsImV4cCI6MjA5NDYwNTYwMH0.NL8Q8Zo0UrsBvTmweMZkb4FH5CuR7-LTNX8YGUZKLQ4" \
+            -H "Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZ3RkbGl6c3BhaXRmcmVwb2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMjk2MDAsImV4cCI6MjA5NDYwNTYwMH0.NL8Q8Zo0UrsBvTmweMZkb4FH5CuR7-LTNX8YGUZKLQ4" \
             "https://rhgtdlizspaitfrepogy.supabase.co/rest/v1/" \
             && echo "Supabase is alive"
