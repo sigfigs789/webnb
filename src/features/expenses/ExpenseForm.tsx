@@ -3,6 +3,7 @@ import { MonthExpense } from '../../shared/types'
 import { getFixedCosts } from '../../shared/fixedCosts'
 import { allPrincipalMonths } from '../../shared/principalGained'
 import { EXPECTED_VAR_COST } from '../../shared/expectedVariableCost'
+import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
 
 type ExpenseKey = 'cleaning' | 'support' | 'tax' | 'misc'
 type RowDraft = Record<ExpenseKey, string>
@@ -63,7 +64,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({})
   const [orderedKeys, setOrderedKeys] = useState<string[]>(ALL_MONTHS)
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
-    () => new Set(Array.from(new Set(ALL_MONTHS.map(k => parseKey(k).year))).filter(y => y < currentYear))
+    () => getDefaultCollapsedYears(ALL_MONTHS.map(k => parseKey(k).year), currentYear)
   )
   const [futureDraft, setFutureDraft] = useState<RowDraft>(() => ({
     cleaning: String(expectedValue('cleaning')),

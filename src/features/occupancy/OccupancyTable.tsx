@@ -1,6 +1,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import { Booking } from '../../shared/types'
 import { aggregateAirbnbDays } from '../../shared/occupancyDays'
+import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
 import { useOccupancy } from './useOccupancy'
 
 interface Props {
@@ -22,7 +23,7 @@ export function OccupancyTable({ bookings }: Props) {
 
   const [drafts, setDrafts] = useState<Record<string, OccupancyDraft>>({})
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
-    () => new Set(Array.from(new Set(months.map(m => m.year))).filter(y => y < thisYear))
+    () => getDefaultCollapsedYears(months.map(m => m.year), thisYear)
   )
 
   // Sync Supabase data into draft state without overwriting in-progress edits

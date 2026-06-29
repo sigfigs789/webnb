@@ -5,6 +5,7 @@ import { aggregateMonthlyRevenue } from '../../shared/revenueDistribution'
 import { getPrincipalGained, allPrincipalMonths } from '../../shared/principalGained'
 import { getFixedCosts, applyOurDaysAdjustment } from '../../shared/fixedCosts'
 import { EXPECTED_VAR_COST, EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
+import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
 import { useExcludedMonths } from './useExcludedMonths'
 import { usePerformanceNotes } from './usePerformanceNotes'
 import { useActualTaxes } from './useActualTaxes'
@@ -209,7 +210,7 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
   const data = mergePerf(bookings, expenses, actualTaxes, occupancyEntries)
   const thisYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
-    () => new Set(Array.from(new Set(data.map(d => d.year))).filter(y => y < thisYear))
+    () => getDefaultCollapsedYears(data.map(d => d.year), thisYear)
   )
   const { excludedMonths, toggleExclude } = useExcludedMonths()
   const { notes, saveNote: persistNote } = usePerformanceNotes()
