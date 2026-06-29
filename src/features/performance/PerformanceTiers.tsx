@@ -189,8 +189,8 @@ const COL_COUNT = 13
 type VariableExpenseKey = 'cleaning' | 'support' | 'misc'
 
 const VARIABLE_EXPENSE_FIELDS: { key: VariableExpenseKey; label: string }[] = [
-  { key: 'support', label: 'Support' },
   { key: 'cleaning', label: 'Cleaning' },
+  { key: 'support', label: 'Support' },
   { key: 'misc', label: 'Misc' },
 ]
 
