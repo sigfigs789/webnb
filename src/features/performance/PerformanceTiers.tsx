@@ -185,7 +185,12 @@ function formatCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
+function formatCurrencyWithCents(n: number) {
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+}
+
 const COL_COUNT = 13
+const REVENUE_CHECK_TOLERANCE = 0.01
 type VariableExpenseKey = 'cleaning' | 'support' | 'misc'
 
 const VARIABLE_EXPENSE_FIELDS: { key: VariableExpenseKey; label: string }[] = [
@@ -212,6 +217,10 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
   const [noteDraft, setNoteDraft] = useState('')
   const [notePos, setNotePos] = useState<{ top: number; right: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const bookingRevenueTotal = bookings.reduce((sum, booking) => sum + booking.revenue, 0)
+  const distributedRevenueTotal = data.reduce((sum, month) => sum + month.revenue, 0)
+  const revenueDifference = distributedRevenueTotal - bookingRevenueTotal
+  const revenueCheckPassed = Math.abs(revenueDifference) <= REVENUE_CHECK_TOLERANCE
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -293,7 +302,21 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
   return (
     <>
     <div className="performance-tiers">
-      <h2>Performance Tiers</h2>
+      <div className="section-heading-row">
+        <h2>Performance Tiers</h2>
+        <div className={`revenue-check ${revenueCheckPassed ? 'revenue-check--pass' : 'revenue-check--fail'}`}>
+          <span className="revenue-check__status">
+            {revenueCheckPassed ? 'Revenue check passed' : 'Revenue check failed'}
+          </span>
+          <span>
+            Bookings {formatCurrencyWithCents(bookingRevenueTotal)}
+            {' · '}
+            Performance {formatCurrencyWithCents(distributedRevenueTotal)}
+            {' · '}
+            Difference {formatCurrencyWithCents(revenueDifference)}
+          </span>
+        </div>
+      </div>
       <div className="table-wrapper">
         <table>
           <thead>

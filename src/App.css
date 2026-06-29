@@ -303,6 +303,50 @@ tr.row-editing input {
   width: auto;
 }
 
+.section-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.section-heading-row h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.revenue-check {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem 0.6rem;
+  max-width: 720px;
+  border: 1px solid;
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.revenue-check__status {
+  font-weight: 700;
+}
+
+.revenue-check--pass {
+  border-color: #9ae6b4;
+  background: #f0fff4;
+  color: #276749;
+}
+
+.revenue-check--fail {
+  border-color: #feb2b2;
+  background: #fff5f5;
+  color: #c53030;
+}
+
 .performance-tiers .expense-input {
   width: 72px;
 }
