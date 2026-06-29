@@ -4,7 +4,7 @@ import { Booking, MonthExpense } from '../../shared/types'
 import { aggregateMonthlyRevenue } from '../../shared/revenueDistribution'
 import { getPrincipalGained, allPrincipalMonths } from '../../shared/principalGained'
 import { getFixedCosts, applyOurDaysAdjustment } from '../../shared/fixedCosts'
-import { EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
+import { EXPECTED_VAR_COST, EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
 import { useExcludedMonths } from './useExcludedMonths'
 import { usePerformanceNotes } from './usePerformanceNotes'
 import { useActualTaxes } from './useActualTaxes'
@@ -15,6 +15,11 @@ import { getTax } from '../../shared/taxCalculation'
 interface Props {
   bookings: Booking[]
   expenses: MonthExpense[]
+  onSetExpense: (
+    year: number,
+    month: number,
+    values: Omit<MonthExpense, 'id' | 'year' | 'month'>
+  ) => void | Promise<void>
 }
 
 interface MonthPerf {
@@ -24,6 +29,9 @@ interface MonthPerf {
   month: number
   revenue: number
   taxes: number
+  cleaning: number
+  support: number
+  misc: number
   variableExpenses: number
   fixedCosts: number
   allExpenses: number
@@ -57,6 +65,9 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
     const key = `${year}-${String(month).padStart(2, '0')}`
     const fixedCosts = adjustedFixedCosts(key, year, month)
     const principal = getPrincipalGained(year, month) ?? 0
+    const cleaning = EXPECTED_VAR_COST.cleaning
+    const support = EXPECTED_VAR_COST.support
+    const misc = EXPECTED_VAR_COST.misc
     const varExp = EXPECTED_VAR_TOTAL
     const allExpenses = varExp + fixedCosts
     map.set(key, {
@@ -66,6 +77,9 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
       month,
       revenue: 0,
       taxes: 0,
+      cleaning,
+      support,
+      misc,
       variableExpenses: varExp,
       fixedCosts,
       allExpenses,
@@ -89,6 +103,9 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
     } else {
       const fixedCosts = adjustedFixedCosts(key, rev.year, rev.month)
       const principal = getPrincipalGained(rev.year, rev.month) ?? 0
+      const cleaning = EXPECTED_VAR_COST.cleaning
+      const support = EXPECTED_VAR_COST.support
+      const misc = EXPECTED_VAR_COST.misc
       const varExp = EXPECTED_VAR_TOTAL
       const allExpenses = varExp + fixedCosts + taxes
       map.set(key, {
@@ -98,6 +115,9 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
         month: rev.month,
         revenue: rev.revenue,
         taxes,
+        cleaning,
+        support,
+        misc,
         variableExpenses: varExp,
         fixedCosts,
         allExpenses,
@@ -111,9 +131,13 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
 
   for (const exp of expenses) {
     const key = `${exp.year}-${String(exp.month).padStart(2, '0')}`
-    const varExp = exp.cleaning + exp.support + exp.misc
+    const { cleaning, support, misc } = exp
+    const varExp = cleaning + support + misc
     const existing = map.get(key)
     if (existing) {
+      existing.cleaning = cleaning
+      existing.support = support
+      existing.misc = misc
       existing.variableExpenses = varExp
       existing.allExpenses = varExp + existing.fixedCosts + existing.taxes
       existing.tier2 = existing.revenue - existing.allExpenses
@@ -130,6 +154,9 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
         month: exp.month,
         revenue: 0,
         taxes: 0,
+        cleaning,
+        support,
+        misc,
         variableExpenses: varExp,
         fixedCosts,
         allExpenses,
@@ -150,13 +177,22 @@ function formatCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
-const COL_COUNT = 11
+const COL_COUNT = 13
+type VariableExpenseKey = 'cleaning' | 'support' | 'misc'
 
-export function PerformanceTiers({ bookings, expenses }: Props) {
+const VARIABLE_EXPENSE_FIELDS: { key: VariableExpenseKey; label: string }[] = [
+  { key: 'support', label: 'Support' },
+  { key: 'cleaning', label: 'Cleaning' },
+  { key: 'misc', label: 'Misc' },
+]
+
+export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
   const { actualTaxes, upsertTax } = useActualTaxes()
   const { entries: occupancyEntries } = useOccupancy()
   const [taxDrafts, setTaxDrafts] = useState<Record<string, string>>({})
   const taxOriginalsRef = useRef<Record<string, number>>({})
+  const [expenseDrafts, setExpenseDrafts] = useState<Record<string, Partial<Record<VariableExpenseKey, string>>>>({})
+  const expenseOriginalsRef = useRef<Record<string, Partial<Record<VariableExpenseKey, number>>>>({})
   const data = mergePerf(bookings, expenses, actualTaxes, occupancyEntries)
   const thisYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
@@ -188,10 +224,38 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
     setEditingNote(null)
   }
 
+  function saveVariableExpense(month: MonthPerf, field: VariableExpenseKey, inputValue: string) {
+    const original = expenseOriginalsRef.current[month.key]?.[field] ?? month[field]
+    const val = Math.round(Math.max(0, Number(inputValue) || 0))
+    setExpenseDrafts(prev => {
+      const next = { ...prev }
+      const row = { ...(next[month.key] ?? {}) }
+      delete row[field]
+      if (Object.keys(row).length) next[month.key] = row
+      else delete next[month.key]
+      return next
+    })
+    if (val === original) return
+
+    const ok = window.confirm(
+      `Change ${field} for ${month.label} from $${original} to $${val}?`
+    )
+    if (!ok) return
+
+    const existing = expenses.find(e => e.year === month.year && e.month === month.month)
+    onSetExpense(month.year, month.month, {
+      cleaning: field === 'cleaning' ? val : month.cleaning,
+      support: field === 'support' ? val : month.support,
+      misc: field === 'misc' ? val : month.misc,
+      tax: existing?.tax ?? 0,
+    })
+  }
+
   const toggleYear = (year: number) =>
     setCollapsedYears(prev => {
       const next = new Set(prev)
-      next.has(year) ? next.delete(year) : next.add(year)
+      if (next.has(year)) next.delete(year)
+      else next.add(year)
       return next
     })
 
@@ -229,7 +293,7 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
               <th>Month</th>
               <th>Gross Revenue</th>
               <th>Fixed Costs</th>
-              <th>Variable Exp</th>
+              {VARIABLE_EXPENSE_FIELDS.map(({ key, label }) => <th key={key}>{label}</th>)}
               <th>Taxes</th>
               <th className="col-divider">Tier 2</th>
               <th>Tier 2 YTD</th>
@@ -284,7 +348,28 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
                           </td>
                           <td className="positive">{formatCurrency(d.revenue)}</td>
                           <td>{formatCurrency(d.fixedCosts)}</td>
-                          <td>{formatCurrency(d.variableExpenses)}</td>
+                          {VARIABLE_EXPENSE_FIELDS.map(({ key }) => (
+                            <td key={key}>
+                              <input
+                                className="expense-input"
+                                type="number"
+                                min="0"
+                                value={expenseDrafts[d.key]?.[key] ?? d[key]}
+                                onFocus={() => {
+                                  expenseOriginalsRef.current[d.key] = {
+                                    ...(expenseOriginalsRef.current[d.key] ?? {}),
+                                    [key]: d[key],
+                                  }
+                                }}
+                                onChange={e => setExpenseDrafts(prev => ({
+                                  ...prev,
+                                  [d.key]: { ...(prev[d.key] ?? {}), [key]: e.target.value },
+                                }))}
+                                onBlur={e => saveVariableExpense(d, key, e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                              />
+                            </td>
+                          ))}
                           <td>
                             <input
                               className="expense-input"
@@ -335,7 +420,9 @@ export function PerformanceTiers({ bookings, expenses }: Props) {
                       <td className="year-summary-label">{group.length} {group.length === 1 ? 'month' : 'months'} hidden</td>
                       <td className="positive">{formatCurrency(group.reduce((s, d) => s + d.revenue, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.fixedCosts, 0))}</td>
-                      <td>{formatCurrency(group.reduce((s, d) => s + d.variableExpenses, 0))}</td>
+                      <td>{formatCurrency(group.reduce((s, d) => s + d.support, 0))}</td>
+                      <td>{formatCurrency(group.reduce((s, d) => s + d.cleaning, 0))}</td>
+                      <td>{formatCurrency(group.reduce((s, d) => s + d.misc, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.taxes, 0))}</td>
                       <td className="col-divider">{formatCurrency(lastRow.tier2Ytd)}</td>
                       <td>—</td>

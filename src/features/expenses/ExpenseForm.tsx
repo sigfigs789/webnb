@@ -53,6 +53,10 @@ const ALL_MONTHS = allPrincipalMonths().map(({ year, month }) => monthKey(year, 
 const EXPECTED = EXPECTED_VAR_COST as Partial<Record<ExpenseKey, number>>
 const EXPECTED_TOTAL = EXPECTED_VAR_TOTAL
 
+function expectedValue(field: ExpenseKey) {
+  return EXPECTED[field] ?? 0
+}
+
 export function ExpenseForm({ expenses, onSubmit }: Props) {
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({})
   const [orderedKeys, setOrderedKeys] = useState<string[]>(ALL_MONTHS)
@@ -86,7 +90,8 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
   const toggleYear = (year: number) =>
     setCollapsedYears(prev => {
       const next = new Set(prev)
-      next.has(year) ? next.delete(year) : next.add(year)
+      if (next.has(year)) next.delete(year)
+      else next.add(year)
       return next
     })
 
@@ -140,7 +145,10 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
   const colSpan = 2 + FIELDS.length + 1
 
   const colTotals = FIELDS.map(({ key: field }) =>
-    orderedKeys.reduce((s, mk) => s + (Number(drafts[mk]?.[field]) || 0), 0)
+    orderedKeys.reduce((s, mk) => {
+      const { year, month } = parseKey(mk)
+      return s + (isPastMonth(year, month) ? Number(drafts[mk]?.[field]) || 0 : expectedValue(field))
+    }, 0)
   )
   const grandTotal = colTotals.reduce((s, v) => s + v, 0)
   const totalFixedCosts = orderedKeys.reduce((s, mk) => {
@@ -150,7 +158,7 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
 
   return (
     <div className="expense-table">
-      <h2>Monthly Expenses</h2>
+      <h2>Monthly expected expenses</h2>
 
       {orderedKeys.length === 0 ? (
         <p className="empty-state">No expense records yet. Add a month below.</p>
@@ -171,7 +179,10 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
                 const collapsed = collapsedYears.has(year)
                 const yearFixed = keys.reduce((s, k) => s + (getFixedCosts(parseKey(k).year, parseKey(k).month) ?? 0), 0)
                 const yearColTotals = FIELDS.map(({ key: field }) =>
-                  keys.reduce((s, k) => s + (Number(drafts[k]?.[field]) || 0), 0)
+                  keys.reduce((s, k) => {
+                    const { year: y, month: m } = parseKey(k)
+                    return s + (isPastMonth(y, m) ? Number(drafts[k]?.[field]) || 0 : expectedValue(field))
+                  }, 0)
                 )
                 const yearGrandTotal = yearColTotals.reduce((s, v) => s + v, 0)
                 return (
@@ -199,44 +210,39 @@ export function ExpenseForm({ expenses, onSubmit }: Props) {
                       keys.map(key => {
                         const draft = drafts[key] ?? zeroDraft()
                         const { year: y, month: m } = parseKey(key)
+                        const expected = !isPastMonth(y, m)
                         const fixedCosts = getFixedCosts(y, m)
-                        const rowTotal = FIELDS.reduce((s, { key: f }) => s + (Number(draft[f]) || 0), 0)
+                        const rowTotal = expected
+                          ? EXPECTED_TOTAL
+                          : FIELDS.reduce((s, { key: f }) => s + (Number(draft[f]) || 0), 0)
                         const showDivider = key === firstFutureKey
                         return (
                           <React.Fragment key={key}>
                             {showDivider && (
-                              <>
-                                <tr className="expense-divider">
-                                  <td colSpan={colSpan}>
-                                    <span>▲ actual&ensp;·&ensp;expected ▼</span>
-                                  </td>
-                                </tr>
-                                <tr className="expense-row--expected">
-                                  <td>Expected</td>
-                                  <td>—</td>
-                                  {FIELDS.map(({ key: field }) => (
-                                    <td key={field}>
-                                      {EXPECTED[field] !== undefined ? formatCurrency(EXPECTED[field]!) : '—'}
-                                    </td>
-                                  ))}
-                                  <td>{formatCurrency(EXPECTED_TOTAL)}</td>
-                                </tr>
-                              </>
+                              <tr className="expense-divider">
+                                <td colSpan={colSpan}>
+                                  <span>▲ actual&ensp;·&ensp;expected ▼</span>
+                                </td>
+                              </tr>
                             )}
-                            <tr>
+                            <tr className={expected ? 'expense-row--expected' : undefined}>
                               <td>{monthLabel(y, m)}</td>
                               <td>{fixedCosts !== null ? formatCurrency(fixedCosts) : '—'}</td>
                               {FIELDS.map(({ key: field }) => (
                                 <td key={field}>
-                                  <input
-                                    className="expense-input"
-                                    type="number"
-                                    min="0"
-                                    step="any"
-                                    value={draft[field]}
-                                    onChange={e => setField(key, field, e.target.value)}
-                                    onBlur={() => save(key)}
-                                  />
+                                  {expected ? (
+                                    <span className="expected-value">{formatCurrency(expectedValue(field))}</span>
+                                  ) : (
+                                    <input
+                                      className="expense-input"
+                                      type="number"
+                                      min="0"
+                                      step="any"
+                                      value={draft[field]}
+                                      onChange={e => setField(key, field, e.target.value)}
+                                      onBlur={() => save(key)}
+                                    />
+                                  )}
                                 </td>
                               ))}
                               <td>{formatCurrency(rowTotal)}</td>

@@ -39,7 +39,8 @@ export function OccupancyTable({ bookings }: Props) {
   const toggleYear = (year: number) =>
     setCollapsedYears(prev => {
       const next = new Set(prev)
-      next.has(year) ? next.delete(year) : next.add(year)
+      if (next.has(year)) next.delete(year)
+      else next.add(year)
       return next
     })
 

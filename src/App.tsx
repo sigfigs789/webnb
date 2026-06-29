@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useBookings } from './features/booking-input/useBookings'
 import { useExpenses } from './features/expenses/useExpenses'
 import { BookingForm } from './features/booking-input/BookingForm'
@@ -12,13 +12,17 @@ const TABS = [
   { path: '/performance', label: 'Performance' },
   { path: '/bookings', label: 'Booking' },
   { path: '/occupancy', label: 'Occupancy' },
-  { path: '/expenses', label: 'Expenses' },
+  { path: '/expenses', label: 'Expected expenses' },
 ]
+
+const WIDE_ROUTES = new Set(TABS.map(tab => tab.path))
 
 function App() {
   const { bookings, loading: bookingsLoading, addBooking, updateBooking, deleteBooking } = useBookings()
   const { expenses, loading: expensesLoading, setExpense } = useExpenses()
   const isLoading = bookingsLoading || expensesLoading
+  const location = useLocation()
+  const isWideRoute = WIDE_ROUTES.has(location.pathname)
 
   return (
     <div className="app">
@@ -38,7 +42,7 @@ function App() {
         ))}
       </nav>
 
-      <main className="app-main">
+      <main className={`app-main${isWideRoute ? ' app-main--wide' : ''}`}>
         {isLoading ? (
           <div className="loading-state">Loading…</div>
         ) : (
@@ -70,7 +74,7 @@ function App() {
 
           <Route path="/performance" element={
             <section className="card">
-              <PerformanceTiers bookings={bookings} expenses={expenses} />
+              <PerformanceTiers bookings={bookings} expenses={expenses} onSetExpense={setExpense} />
             </section>
           } />
         </Routes>

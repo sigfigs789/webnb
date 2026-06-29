@@ -26,7 +26,8 @@ export function useExcludedMonths() {
     const nowExcluded = !excludedMonths.has(key)
     setExcludedMonths(prev => {
       const next = new Set(prev)
-      nowExcluded ? next.add(key) : next.delete(key)
+      if (nowExcluded) next.add(key)
+      else next.delete(key)
       return next
     })
     await supabase

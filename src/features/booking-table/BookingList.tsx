@@ -25,7 +25,7 @@ function calcNights(start: string, end: string) {
   if (!start || !end) return '—'
   const ms = new Date(end).getTime() - new Date(start).getTime()
   const nights = Math.round(ms / 86400000)
-  return nights > 0 ? `${nights}n` : '—'
+  return nights > 0 ? String(nights) : '—'
 }
 
 function formatCurrency(n: number) {
@@ -87,7 +87,8 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
   const toggleYear = (year: number) =>
     setCollapsedYears(prev => {
       const next = new Set(prev)
-      next.has(year) ? next.delete(year) : next.add(year)
+      if (next.has(year)) next.delete(year)
+      else next.add(year)
       return next
     })
 
