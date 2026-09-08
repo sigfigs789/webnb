@@ -10,11 +10,11 @@ import { RevenuePerNightChart } from './features/revenue-per-night/RevenuePerNig
 import './App.css'
 
 const TABS = [
-  { path: '/performance', label: 'Performance' },
-  { path: '/revenue-per-night', label: 'Revenue/night' },
   { path: '/bookings', label: 'Booking' },
-  { path: '/occupancy', label: 'Occupancy' },
+  { path: '/performance', label: 'Performance' },
   { path: '/expenses', label: 'Expected expenses' },
+  { path: '/revenue-per-night', label: 'Revenue/night' },
+  { path: '/occupancy', label: 'Occupancy' },
 ]
 
 const WIDE_ROUTES = new Set(TABS.map(tab => tab.path))
@@ -49,7 +49,7 @@ function App() {
           <div className="loading-state">Loading…</div>
         ) : (
         <Routes>
-          <Route path="/" element={<Navigate to="/performance" replace />} />
+          <Route path="/" element={<Navigate to="/bookings" replace />} />
 
           <Route path="/bookings" element={
             <>
