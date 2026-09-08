@@ -200,7 +200,7 @@ function amountWhileEditing(n: number) {
   return String(roundToCents(n))
 }
 
-const COL_COUNT = 13
+const COL_COUNT = 10
 const REVENUE_CHECK_TOLERANCE = 0.01
 type VariableExpenseKey = 'cleaning' | 'support' | 'misc'
 
@@ -337,11 +337,8 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
               <th>Fixed Costs</th>
               {VARIABLE_EXPENSE_FIELDS.map(({ key, label }) => <th key={key}>{label}</th>)}
               <th>Taxes</th>
-              <th className="col-divider">Tier 2</th>
-              <th>Tier 2 YTD</th>
-              <th className="col-divider">Principal</th>
-              <th>Tier 1</th>
-              <th>Tier 1 YTD</th>
+              <th className="col-divider">Tier 2 YTD</th>
+              <th className="col-divider">Tier 1 YTD</th>
               <th className="note-cell" />
             </tr>
           </thead>
@@ -441,11 +438,8 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                               onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                             />
                           </td>
-                          <td className={`col-divider${d.tier2 < 0 ? ' negative' : ''}`}>{formatCurrency(d.tier2)}</td>
-                          <td>{formatCurrency(d.tier2Ytd)}</td>
-                          <td className="col-divider positive">{formatCurrency(d.principal)}</td>
-                          <td className={d.tier1 < 0 ? 'negative' : ''}>{formatCurrency(d.tier1)}</td>
-                          <td>{formatCurrency(d.tier1Ytd)}</td>
+                          <td className={`col-divider${d.tier2Ytd < 0 ? ' negative' : ''}`}>{formatCurrency(d.tier2Ytd)}</td>
+                          <td className={`col-divider${d.tier1Ytd < 0 ? ' negative' : ''}`}>{formatCurrency(d.tier1Ytd)}</td>
                           <td className="note-cell">
                             <div className="note-wrapper">
                               <button
@@ -469,15 +463,12 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                       <td className="year-summary-label">{group.length} {group.length === 1 ? 'month' : 'months'} hidden</td>
                       <td className="positive">{formatCurrency(group.reduce((s, d) => s + d.revenue, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.fixedCosts, 0))}</td>
-                      <td>{formatCurrency(group.reduce((s, d) => s + d.support, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.cleaning, 0))}</td>
+                      <td>{formatCurrency(group.reduce((s, d) => s + d.support, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.misc, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.taxes, 0))}</td>
                       <td className="col-divider">{formatCurrency(lastRow.tier2Ytd)}</td>
-                      <td>—</td>
-                      <td className="col-divider positive">{formatCurrency(group.reduce((s, d) => s + d.principal, 0))}</td>
-                      <td>{formatCurrency(lastRow.tier1Ytd)}</td>
-                      <td>—</td>
+                      <td className="col-divider">{formatCurrency(lastRow.tier1Ytd)}</td>
                       <td className="note-cell" />
                     </tr>
                   )}
