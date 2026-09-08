@@ -57,3 +57,36 @@ export function aggregateAirbnbDays(bookings: Booking[]): MonthAirbnbDays[] {
     a.year !== b.year ? a.year - b.year : a.month - b.month
   )
 }
+
+function emptyMonth(year: number, month: number): MonthAirbnbDays {
+  return {
+    year,
+    month,
+    label: `${MONTH_NAMES[month - 1]} ${year}`,
+    airbnbDays: 0,
+    daysInMonth: new Date(Date.UTC(year, month, 0)).getUTCDate(),
+  }
+}
+
+/**
+ * Returns a contiguous month-by-month series so months with no Airbnb bookings
+ * (but which may still have Kindred or Our days) get a row instead of vanishing.
+ * The range spans the earliest to the latest month across `months` and `extra`.
+ */
+export function fillMonthGaps(
+  months: MonthAirbnbDays[],
+  extra: { year: number; month: number }[] = []
+): MonthAirbnbDays[] {
+  const all = [...months, ...extra]
+  if (all.length === 0) return []
+
+  const ordinal = (m: { year: number; month: number }) => m.year * 12 + (m.month - 1)
+  const known = new Map(months.map(m => [ordinal(m), m]))
+  const ordinals = all.map(ordinal)
+
+  const result: MonthAirbnbDays[] = []
+  for (let o = Math.min(...ordinals); o <= Math.max(...ordinals); o++) {
+    result.push(known.get(o) ?? emptyMonth(Math.floor(o / 12), (o % 12) + 1))
+  }
+  return result
+}

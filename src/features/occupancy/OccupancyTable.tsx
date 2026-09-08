@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { Booking } from '../../shared/types'
-import { aggregateAirbnbDays } from '../../shared/occupancyDays'
+import { aggregateAirbnbDays, fillMonthGaps } from '../../shared/occupancyDays'
 import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
 import { useOccupancy } from './useOccupancy'
 
@@ -18,7 +18,7 @@ const zeroDraft = (): OccupancyDraft => ({ kindredDays: '0', ourDays: '0' })
 
 export function OccupancyTable({ bookings }: Props) {
   const { entries, setEntry } = useOccupancy()
-  const months = aggregateAirbnbDays(bookings)
+  const months = fillMonthGaps(aggregateAirbnbDays(bookings), entries)
   const thisYear = new Date().getFullYear()
 
   const [drafts, setDrafts] = useState<Record<string, OccupancyDraft>>({})

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { aggregateAirbnbDays } from './occupancyDays'
+import { aggregateAirbnbDays, fillMonthGaps } from './occupancyDays'
 import { Booking } from './types'
 
 function booking(startDate: string, endDate: string): Booking {
@@ -75,5 +75,53 @@ describe('aggregateAirbnbDays', () => {
     expect(result[0].month).toBe(11)
     expect(result[1].year).toBe(2025)
     expect(result[1].month).toBe(3)
+  })
+})
+
+describe('fillMonthGaps', () => {
+  it('returns empty array when there is nothing to fill', () => {
+    expect(fillMonthGaps([], [])).toHaveLength(0)
+  })
+
+  it('inserts a row for a month with no bookings', () => {
+    // Nov 2024 had no Airbnb nights, but 28 Kindred days.
+    const months = aggregateAirbnbDays([
+      booking('2024-10-01', '2024-10-02'),
+      booking('2024-12-01', '2024-12-02'),
+    ])
+    const filled = fillMonthGaps(months)
+
+    expect(filled.map(m => m.label)).toEqual(['Oct 2024', 'Nov 2024', 'Dec 2024'])
+    const nov = filled[1]
+    expect(nov.airbnbDays).toBe(0)
+    expect(nov.daysInMonth).toBe(30)
+  })
+
+  it('spans year boundaries and uses correct day counts', () => {
+    const filled = fillMonthGaps(
+      aggregateAirbnbDays([booking('2023-12-01', '2023-12-02'), booking('2024-03-01', '2024-03-02')])
+    )
+    expect(filled.map(m => m.label)).toEqual(['Dec 2023', 'Jan 2024', 'Feb 2024', 'Mar 2024'])
+    expect(filled[2].daysInMonth).toBe(29) // leap year
+  })
+
+  it('extends the range to cover occupancy-only months', () => {
+    const months = aggregateAirbnbDays([booking('2025-06-01', '2025-06-02')])
+    const filled = fillMonthGaps(months, [
+      { year: 2025, month: 4 },
+      { year: 2025, month: 8 },
+    ])
+    expect(filled.map(m => m.label)).toEqual([
+      'Apr 2025',
+      'May 2025',
+      'Jun 2025',
+      'Jul 2025',
+      'Aug 2025',
+    ])
+  })
+
+  it('preserves booking data for months that have it', () => {
+    const months = aggregateAirbnbDays([booking('2024-06-01', '2024-06-30')])
+    expect(fillMonthGaps(months)).toEqual(months)
   })
 })
