@@ -12,6 +12,7 @@ The app is a Vite + React + TypeScript single-page app backed by Supabase. It tr
 - Performance view with revenue distribution, taxes, variable expenses, fixed costs, principal gained, tier totals, notes, and default collapsed past years.
 - Two independent per-month toggles in both the performance and expenses tables: **S** skips the month from that table's totals, **P** prorates that month's fixed costs by its owner-use days. Fixed costs are flat unless a month opts in to proration.
 - Each tab stores its own flags, so skipping or prorating a month in Performance does not affect Expenses, or vice versa.
+- Revenue/night tab with an interactive bar chart of revenue per occupied night across the years: monthly or yearly granularity, per-year toggles, click-to-pin bar detail, and a weighted-average reference line.
 - Shared calculation modules covered by Vitest tests.
 
 ## Setup
@@ -62,4 +63,4 @@ The app expects snake_case database columns and maps them to camelCase TypeScrip
 
 ## Deployment
 
-The project includes `vercel.json` with an SPA rewrite to `index.html`, so browser routes such as `/performance`, `/bookings`, `/occupancy`, and `/expenses` work when deployed on Vercel.
+The project includes `vercel.json` with an SPA rewrite to `index.html`, so browser routes such as `/performance`, `/revenue-per-night`, `/bookings`, `/occupancy`, and `/expenses` work when deployed on Vercel.

@@ -805,3 +805,173 @@ td.note-cell {
     width: 100%;
   }
 }
+
+/* ── Revenue per night chart ─────────────────────────── */
+.revenue-chart h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.revenue-chart__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.revenue-chart__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.revenue-chart__toggle {
+  display: inline-flex;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.revenue-chart__toggle-btn {
+  background: none;
+  border: none;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #718096;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.revenue-chart__toggle-btn:hover {
+  color: #2d3748;
+}
+
+.revenue-chart__toggle-btn--active {
+  background: #4f7ef8;
+  color: #fff;
+  font-weight: 600;
+}
+
+.revenue-chart__years {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
+}
+
+.revenue-chart__year {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #a0aec0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.revenue-chart__year--on {
+  background: #eef3ff;
+  border-color: #c3d4fd;
+  color: #2f5fd8;
+  font-weight: 600;
+}
+
+.revenue-chart__plot {
+  margin: 0 -0.5rem;
+}
+
+/* Recharts focuses its bar layer (tabindex="-1") on click, which paints a
+   browser focus ring around the whole plot. It is not keyboard-reachable, so
+   drop the ring for pointer focus while leaving :focus-visible alone. */
+.revenue-chart__plot :focus:not(:focus-visible) {
+  outline: none;
+}
+
+.revenue-chart__tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.75rem;
+  color: #4a5568;
+  box-shadow: 0 4px 12px rgba(26, 32, 44, 0.1);
+}
+
+.revenue-chart__tooltip strong {
+  color: #1a202c;
+  font-size: 0.8rem;
+}
+
+.revenue-chart__legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: #718096;
+  margin-top: 0.5rem;
+}
+
+.revenue-chart__legend-line {
+  display: inline-block;
+  width: 18px;
+  border-top: 2px dashed #e07a5f;
+  flex-shrink: 0;
+}
+
+.revenue-chart__stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+}
+
+.revenue-chart__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: #f8fafc;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+}
+
+.revenue-chart__stat-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #a0aec0;
+}
+
+.revenue-chart__stat-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.revenue-chart__empty {
+  font-size: 0.8rem;
+  color: #718096;
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .revenue-chart__head {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .revenue-chart__stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

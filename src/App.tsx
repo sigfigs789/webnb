@@ -6,10 +6,12 @@ import { BookingList } from './features/booking-table/BookingList'
 import { ExpenseForm } from './features/expenses/ExpenseForm'
 import { OccupancyTable } from './features/occupancy/OccupancyTable'
 import { PerformanceTiers } from './features/performance/PerformanceTiers'
+import { RevenuePerNightChart } from './features/revenue-per-night/RevenuePerNightChart'
 import './App.css'
 
 const TABS = [
   { path: '/performance', label: 'Performance' },
+  { path: '/revenue-per-night', label: 'Revenue/night' },
   { path: '/bookings', label: 'Booking' },
   { path: '/occupancy', label: 'Occupancy' },
   { path: '/expenses', label: 'Expected expenses' },
@@ -73,6 +75,12 @@ function App() {
           <Route path="/occupancy" element={
             <section className="card">
               <OccupancyTable bookings={bookings} />
+            </section>
+          } />
+
+          <Route path="/revenue-per-night" element={
+            <section className="card">
+              <RevenuePerNightChart bookings={bookings} />
             </section>
           } />
 
