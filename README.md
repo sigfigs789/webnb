@@ -2,14 +2,16 @@
 
 Rental cashflow tracker for bookings, occupancy, expenses, and monthly performance.
 
-The app is a Vite + React + TypeScript single-page app backed by Supabase. It tracks booking revenue, pass-through tax, owner-use days, Kindred occupancy days, expected and actual variable expenses, tax overrides, monthly notes, excluded months, fixed costs, principal gained, and tiered monthly performance.
+The app is a Vite + React + TypeScript single-page app backed by Supabase. It tracks booking revenue, pass-through tax, owner-use days, Kindred occupancy days, expected and actual variable expenses, tax overrides, monthly notes, skipped months, prorated months, fixed costs, principal gained, and tiered monthly performance.
 
 ## Features
 
 - Booking CRUD with revenue, pass-through tax, booking date, check-in date, and check-out date.
 - Occupancy table that combines Airbnb booking days with manually entered Kindred and owner-use days.
 - Expected expenses table with month-level cleaning, support, tax, and misc costs, plus a bulk update for future expected variable expenses.
-- Performance view with revenue distribution, taxes, variable expenses, owner-use-adjusted fixed costs, principal gained, tier totals, notes, excluded months, and default collapsed past years.
+- Performance view with revenue distribution, taxes, variable expenses, fixed costs, principal gained, tier totals, notes, and default collapsed past years.
+- Two independent per-month toggles in both the performance and expenses tables: **S** skips the month from that table's totals, **P** prorates that month's fixed costs by its owner-use days. Fixed costs are flat unless a month opts in to proration.
+- Each tab stores its own flags, so skipping or prorating a month in Performance does not affect Expenses, or vice versa.
 - Shared calculation modules covered by Vitest tests.
 
 ## Setup
@@ -51,6 +53,9 @@ The frontend reads and writes these Supabase tables:
 - `occupancy`
 - `actual_taxes`
 - `excluded_months`
+- `prorated_months`
+- `expense_excluded_months`
+- `expense_prorated_months`
 - `performance_notes`
 
 The app expects snake_case database columns and maps them to camelCase TypeScript models in the hooks under `src/features`.

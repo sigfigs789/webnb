@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, Fragment } from 'react'
 import { MonthExpense } from '../../shared/types'
-import { getFixedCosts } from '../../shared/fixedCosts'
+import { getFixedCosts, applyOurDaysAdjustment } from '../../shared/fixedCosts'
 import { allPrincipalMonths } from '../../shared/principalGained'
 import { getExpectedVarCost, resolveExpectedForMonth, isScheduleActive, EXPECTED_VAR_COST } from '../../shared/expectedVariableCost'
 import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
+import { useExpenseExcludedMonths, useExpenseProratedMonths } from './useExpenseMonthFlags'
+import { useOccupancy } from '../occupancy/useOccupancy'
 
 type ExpenseKey = 'cleaning' | 'support' | 'tax' | 'misc'
 type RowDraft = Record<ExpenseKey, string>
@@ -29,6 +31,10 @@ function monthKey(year: number, month: number) {
 function parseKey(key: string) {
   const [y, m] = key.split('-').map(Number)
   return { year: y, month: m }
+}
+
+function daysInMonth(year: number, month: number) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate()
 }
 
 function monthLabel(year: number, month: number) {
@@ -77,6 +83,21 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
   const dirtyKeys = useRef<Set<string>>(new Set())
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
+  const { excludedMonths, toggleExclude } = useExpenseExcludedMonths()
+  const { proratedMonths, toggleProrate } = useExpenseProratedMonths()
+  const { entries: occupancyEntries } = useOccupancy()
+  const ourDaysByKey = new Map(
+    occupancyEntries.map(e => [monthKey(e.year, e.month), e.ourDays])
+  )
+
+  // Fixed costs are flat unless the month is flagged for proration, in which
+  // case they scale down by that month's owner-use days.
+  function fixedCostFor(key: string): number | null {
+    const { year, month } = parseKey(key)
+    const full = getFixedCosts(year, month)
+    if (full === null || !proratedMonths.has(key)) return full
+    return applyOurDaysAdjustment(full, ourDaysByKey.get(key) ?? 0, daysInMonth(year, month))
+  }
 
   // Merge rows arriving from Supabase without overwriting in-progress local edits
   useEffect(() => {
@@ -224,14 +245,13 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
 
   const colSpan = 2 + FIELDS.length + 1
 
+  // Skipped months are shown but left out of every total.
+  const includedKeys = orderedKeys.filter(k => !excludedMonths.has(k))
   const colTotals = FIELDS.map(({ key: field }) =>
-    orderedKeys.reduce((s, mk) => s + fieldValue(mk, field), 0)
+    includedKeys.reduce((s, mk) => s + fieldValue(mk, field), 0)
   )
   const grandTotal = colTotals.reduce((s, v) => s + v, 0)
-  const totalFixedCosts = orderedKeys.reduce((s, mk) => {
-    const { year, month } = parseKey(mk)
-    return s + (getFixedCosts(year, month) ?? 0)
-  }, 0)
+  const totalFixedCosts = includedKeys.reduce((s, mk) => s + (fixedCostFor(mk) ?? 0), 0)
 
   return (
     <div className="expense-table">
@@ -274,9 +294,10 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
               {years.map(year => {
                 const keys = keysByYear.get(year) ?? []
                 const collapsed = collapsedYears.has(year)
-                const yearFixed = keys.reduce((s, k) => s + (getFixedCosts(parseKey(k).year, parseKey(k).month) ?? 0), 0)
+                const includedYearKeys = keys.filter(k => !excludedMonths.has(k))
+                const yearFixed = includedYearKeys.reduce((s, k) => s + (fixedCostFor(k) ?? 0), 0)
                 const yearColTotals = FIELDS.map(({ key: field }) =>
-                  keys.reduce((s, k) => s + fieldValue(k, field), 0)
+                  includedYearKeys.reduce((s, k) => s + fieldValue(k, field), 0)
                 )
                 const yearGrandTotal = yearColTotals.reduce((s, v) => s + v, 0)
                 return (
@@ -295,7 +316,11 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                     </tr>
                     {collapsed ? (
                       <tr className="year-summary-row">
-                        <td className="year-summary-label">{keys.length} months hidden</td>
+                        <td className="year-summary-label">
+                          {keys.length} months hidden
+                          {keys.length - includedYearKeys.length > 0 &&
+                            ` · ${keys.length - includedYearKeys.length} skipped`}
+                        </td>
                         <td>{formatCurrency(yearFixed)}</td>
                         {yearColTotals.map((t, i) => <td key={i}>{formatCurrency(t)}</td>)}
                         <td>{formatCurrency(yearGrandTotal)}</td>
@@ -305,7 +330,9 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                         const draft = rowDraft(key)
                         const { year: y, month: m } = parseKey(key)
                         const expected = !isPastMonth(y, m)
-                        const fixedCosts = getFixedCosts(y, m)
+                        const fixedCosts = fixedCostFor(key)
+                        const excluded = excludedMonths.has(key)
+                        const prorated = proratedMonths.has(key)
                         const rowTotal = FIELDS.reduce((s, { key: f }) => s + fieldValue(key, f), 0)
                         const showDivider = key === firstFutureKey
                         return (
@@ -317,9 +344,35 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                                 </td>
                               </tr>
                             )}
-                            <tr className={expected ? 'expense-row--expected' : undefined}>
-                              <td>{monthLabel(y, m)}</td>
-                              <td>{fixedCosts !== null ? formatCurrency(fixedCosts) : '—'}</td>
+                            <tr className={[excluded ? 'row-excluded' : '', expected ? 'expense-row--expected' : ''].filter(Boolean).join(' ') || undefined}>
+                              <td>
+                                <div className="month-cell">
+                                  <button
+                                    type="button"
+                                    className={`month-flag-btn month-flag-btn--skip${excluded ? ' active' : ''}`}
+                                    onClick={() => toggleExclude(key)}
+                                    title={excluded ? 'Skipped: not counted in totals' : 'Skip this month in totals'}
+                                    aria-label={`${excluded ? 'Include' : 'Skip'} ${monthLabel(y, m)} in totals`}
+                                    aria-pressed={excluded}
+                                  >
+                                    S
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`month-flag-btn month-flag-btn--prorate${prorated ? ' active' : ''}`}
+                                    onClick={() => toggleProrate(key)}
+                                    title={prorated ? 'Prorated: fixed costs reduced by owner-use days' : 'Prorate fixed costs by owner-use days'}
+                                    aria-label={`${prorated ? 'Stop prorating' : 'Prorate'} fixed costs for ${monthLabel(y, m)}`}
+                                    aria-pressed={prorated}
+                                  >
+                                    P
+                                  </button>
+                                  {monthLabel(y, m)}
+                                </div>
+                              </td>
+                              <td className={prorated ? 'fixed-cost-prorated' : ''} title={prorated ? 'Prorated by owner-use days' : undefined}>
+                                {fixedCosts !== null ? formatCurrency(fixedCosts) : '—'}
+                              </td>
                               {FIELDS.map(({ key: field }) => (
                                 <td key={field}>
                                   <input
