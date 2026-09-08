@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { MonthExpense } from '../../shared/types'
 import { allPrincipalMonths } from '../../shared/principalGained'
+import { isScheduleActive, resolveExpectedForMonth } from '../../shared/expectedVariableCost'
 
 type ExpectedExpenseValues = Pick<MonthExpense, 'cleaning' | 'support' | 'misc'>
 
@@ -45,14 +46,17 @@ export function useExpenses() {
     const existingByMonth = new Map(expenses.map(e => [`${e.year}-${e.month}`, e]))
     const rows = allPrincipalMonths()
       .filter(({ year, month }) => year > currentYear || (year === currentYear && month >= currentMonth))
+      // The scheduled expected costs start at SCHEDULE_START; leave earlier months alone.
+      .filter(({ year, month }) => isScheduleActive(year, month))
       .map(({ year, month }) => {
         const existing = existingByMonth.get(`${year}-${month}`)
+        const scheduled = resolveExpectedForMonth(year, month, values)
         return {
           year,
           month,
-          cleaning: values.cleaning,
-          support: values.support,
-          misc: values.misc,
+          cleaning: scheduled.cleaning,
+          support: scheduled.support,
+          misc: scheduled.misc,
           tax: existing?.tax ?? 0,
         }
       })
