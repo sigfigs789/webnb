@@ -298,12 +298,14 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
   let currentYear = -1
   const rows = data.map(d => {
     if (d.year !== currentYear) { ytd2 = 0; ytd1 = 0; currentYear = d.year }
-    if (!excludedMonths.has(d.key)) {
+    const excluded = excludedMonths.has(d.key)
+    if (!excluded) {
       ytd2 += d.tier2
       ytd1 += d.tier1
     }
-    // Net mirrors Tier 1 (revenue + equity gained − costs), just monthly rather than YTD
-    return { ...d, net: d.tier1, tier2Ytd: ytd2, tier1Ytd: ytd1 }
+    // Net mirrors Tier 1 (revenue + equity gained − costs), just monthly rather
+    // than YTD. A skipped month nets zero, so it drops out of the year total too.
+    return { ...d, net: excluded ? 0 : d.tier1, tier2Ytd: ytd2, tier1Ytd: ytd1 }
   })
 
   // Group by year
