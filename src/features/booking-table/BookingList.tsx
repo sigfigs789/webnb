@@ -21,11 +21,22 @@ function formatDate(d: string) {
   return `${m}/${day}/${y}`
 }
 
-function calcNights(start: string, end: string) {
-  if (!start || !end) return '—'
+function nightsBetween(start: string, end: string) {
+  if (!start || !end) return 0
   const ms = new Date(end).getTime() - new Date(start).getTime()
   const nights = Math.round(ms / 86400000)
+  return nights > 0 ? nights : 0
+}
+
+function calcNights(start: string, end: string) {
+  const nights = nightsBetween(start, end)
   return nights > 0 ? String(nights) : '—'
+}
+
+function calcRevenuePerDay(revenue: number, start: string, end: string) {
+  const nights = nightsBetween(start, end)
+  if (nights === 0 || !Number.isFinite(revenue)) return '—'
+  return formatCurrency(revenue / nights)
 }
 
 function formatCurrency(n: number) {
@@ -117,6 +128,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
               <th>Check-in</th>
               <th>Check-out</th>
               <th>Duration</th>
+              <th>Gross Revenue/day</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -128,7 +140,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
               return (
                 <Fragment key={`year-${year}`}>
                   <tr className="year-header-row">
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <button
                         className="year-toggle"
                         onClick={() => toggleYear(year)}
@@ -143,7 +155,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                     <tr className="year-summary-row">
                       <td className="year-summary-label">{group.length} bookings hidden</td>
                       <td>{formatCurrency(yearRevenue)}</td>
-                      <td colSpan={5}>—</td>
+                      <td colSpan={6}>—</td>
                     </tr>
                   ) : (
                     group.map(b => {
@@ -220,6 +232,12 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                             {isEditing
                               ? calcNights(editValues!.startDate, editValues!.endDate)
                               : calcNights(b.startDate, b.endDate)
+                            }
+                          </td>
+                          <td>
+                            {isEditing
+                              ? calcRevenuePerDay(Number(editValues!.revenue), editValues!.startDate, editValues!.endDate)
+                              : calcRevenuePerDay(b.revenue, b.startDate, b.endDate)
                             }
                           </td>
                           <td onClick={e => e.stopPropagation()}>
