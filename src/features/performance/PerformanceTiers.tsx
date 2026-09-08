@@ -190,6 +190,20 @@ function formatCurrencyWithCents(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 }
 
+// Amounts are stored to the cent. Inputs show whole dollars at rest and switch to
+// the exact stored value on focus, so editing a cell never truncates its cents.
+function roundToCents(n: number) {
+  return Math.round(n * 100) / 100
+}
+
+function amountAtRest(n: number) {
+  return String(Math.round(n))
+}
+
+function amountWhileEditing(n: number) {
+  return String(roundToCents(n))
+}
+
 const COL_COUNT = 13
 const REVENUE_CHECK_TOLERANCE = 0.01
 type VariableExpenseKey = 'cleaning' | 'support' | 'misc'
@@ -243,8 +257,8 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
   }
 
   function saveVariableExpense(month: MonthPerf, field: VariableExpenseKey, inputValue: string) {
-    const original = expenseOriginalsRef.current[month.key]?.[field] ?? month[field]
-    const val = Math.round(Math.max(0, Number(inputValue) || 0))
+    const original = roundToCents(expenseOriginalsRef.current[month.key]?.[field] ?? month[field])
+    const val = roundToCents(Math.max(0, Number(inputValue) || 0))
     setExpenseDrafts(prev => {
       const next = { ...prev }
       const row = { ...(next[month.key] ?? {}) }
@@ -256,7 +270,7 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
     if (val === original) return
 
     const ok = window.confirm(
-      `Change ${field} for ${month.label} from $${original} to $${val}?`
+      `Change ${field} for ${month.label} from $${original.toFixed(2)} to $${val.toFixed(2)}?`
     )
     if (!ok) return
 
@@ -385,14 +399,17 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                               <input
                                 className="expense-input"
                                 type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                value={expenseDrafts[d.key]?.[key] ?? d[key]}
+                                inputMode="decimal"
+                                value={expenseDrafts[d.key]?.[key] ?? amountAtRest(d[key])}
                                 onFocus={() => {
                                   expenseOriginalsRef.current[d.key] = {
                                     ...(expenseOriginalsRef.current[d.key] ?? {}),
                                     [key]: d[key],
                                   }
+                                  setExpenseDrafts(prev => ({
+                                    ...prev,
+                                    [d.key]: { ...(prev[d.key] ?? {}), [key]: amountWhileEditing(d[key]) },
+                                  }))
                                 }}
                                 onChange={e => setExpenseDrafts(prev => ({
                                   ...prev,
@@ -407,18 +424,20 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                             <input
                               className="expense-input"
                               type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              value={taxDrafts[d.key] ?? d.taxes}
-                              onFocus={() => { taxOriginalsRef.current[d.key] = d.taxes }}
+                              inputMode="decimal"
+                              value={taxDrafts[d.key] ?? amountAtRest(d.taxes)}
+                              onFocus={() => {
+                                taxOriginalsRef.current[d.key] = d.taxes
+                                setTaxDrafts(prev => ({ ...prev, [d.key]: amountWhileEditing(d.taxes) }))
+                              }}
                               onChange={e => setTaxDrafts(prev => ({ ...prev, [d.key]: e.target.value }))}
                               onBlur={e => {
-                                const original = taxOriginalsRef.current[d.key] ?? d.taxes
-                                const val = Math.round(Math.max(0, Number(e.target.value) || 0))
+                                const original = roundToCents(taxOriginalsRef.current[d.key] ?? d.taxes)
+                                const val = roundToCents(Math.max(0, Number(e.target.value) || 0))
                                 setTaxDrafts(prev => { const next = { ...prev }; delete next[d.key]; return next })
                                 if (val !== original) {
                                   const ok = window.confirm(
-                                    `Change tax for ${d.label} from $${original} to $${val}?`
+                                    `Change tax for ${d.label} from $${original.toFixed(2)} to $${val.toFixed(2)}?`
                                   )
                                   if (ok) upsertTax(d.year, d.month, val)
                                 }
