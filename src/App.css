@@ -300,7 +300,7 @@ tr.row-editing input {
 
 /* ── Performance table ───────────────────────────────── */
 .performance-tiers table {
-  width: auto;
+  width: 100%;
 }
 
 .section-heading-row {
