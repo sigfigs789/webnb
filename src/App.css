@@ -418,9 +418,16 @@ tr.expense-row--expected td {
   color: #718096;
 }
 
-.expected-value {
-  font-weight: 600;
+/* Expected months are editable, but read as projections until saved */
+.expense-input--expected {
+  border-style: dashed;
+  border-color: #cbd5e0;
+  background: #fff;
   color: #4a5568;
+}
+
+.expense-input--expected:focus {
+  border-style: solid;
 }
 
 .expense-add-row {
