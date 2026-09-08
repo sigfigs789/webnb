@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Fragment } from 'react'
 import { createPortal } from 'react-dom'
 import { Booking, MonthExpense } from '../../shared/types'
 import { aggregateMonthlyRevenue } from '../../shared/revenueDistribution'
@@ -7,6 +7,7 @@ import { getFixedCosts, applyOurDaysAdjustment } from '../../shared/fixedCosts'
 import { getExpectedVarCost, getExpectedVarTotal } from '../../shared/expectedVariableCost'
 import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
 import { useExcludedMonths } from './useExcludedMonths'
+import { useProratedMonths } from './useProratedMonths'
 import { usePerformanceNotes } from './usePerformanceNotes'
 import { useActualTaxes } from './useActualTaxes'
 import { useOccupancy, OccupancyEntry } from '../occupancy/useOccupancy'
@@ -48,7 +49,7 @@ function getDaysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate()
 }
 
-function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: Record<string, number>, occupancyEntries: OccupancyEntry[]): MonthPerf[] {
+function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: Record<string, number>, occupancyEntries: OccupancyEntry[], proratedMonths: Set<string>): MonthPerf[] {
   const today = new Date()
   const currentYear = today.getFullYear()
   const currentMonth = today.getMonth() + 1
@@ -61,8 +62,11 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
     return year < currentYear || (year === currentYear && month < currentMonth)
   }
 
+  // Fixed costs are flat unless the month is explicitly flagged for proration,
+  // in which case they scale down by that month's owner-use days.
   function adjustedFixedCosts(key: string, year: number, month: number): number {
     const full = getFixedCosts(year, month) ?? 0
+    if (!proratedMonths.has(key)) return full
     const ourDays = occupancyMap.get(key) ?? 0
     return applyOurDaysAdjustment(full, ourDays, getDaysInMonth(year, month))
   }
@@ -217,12 +221,13 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
   const taxOriginalsRef = useRef<Record<string, number>>({})
   const [expenseDrafts, setExpenseDrafts] = useState<Record<string, Partial<Record<VariableExpenseKey, string>>>>({})
   const expenseOriginalsRef = useRef<Record<string, Partial<Record<VariableExpenseKey, number>>>>({})
-  const data = mergePerf(bookings, expenses, actualTaxes, occupancyEntries)
+  const { excludedMonths, toggleExclude } = useExcludedMonths()
+  const { proratedMonths, toggleProrate } = useProratedMonths()
+  const data = mergePerf(bookings, expenses, actualTaxes, occupancyEntries, proratedMonths)
   const thisYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
     () => getDefaultCollapsedYears(data.map(d => d.year), thisYear)
   )
-  const { excludedMonths, toggleExclude } = useExcludedMonths()
   const { notes, saveNote: persistNote } = usePerformanceNotes()
   const [editingNote, setEditingNote] = useState<string | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
@@ -348,8 +353,8 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
               const collapsed = collapsedYears.has(year)
               const lastRow = group[group.length - 1]
               return (
-                <>
-                  <tr key={`year-${year}`} className="year-header-row">
+                <Fragment key={`year-${year}`}>
+                  <tr className="year-header-row">
                     <td colSpan={COL_COUNT}>
                       <button
                         className="year-toggle"
@@ -363,30 +368,44 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                   </tr>
                   {!collapsed && group.map((d, i) => {
                     const excluded = excludedMonths.has(d.key)
+                    const prorated = proratedMonths.has(d.key)
                     const prev = group[i - 1]
                     const showDivider = prev && prev.hasActualExpenses && !d.hasActualExpenses
                     return (
-                      <>
+                      <Fragment key={d.key}>
                         {showDivider && (
-                          <tr key={`${d.key}-divider`} className="expense-divider">
+                          <tr className="expense-divider">
                             <td colSpan={COL_COUNT}><span>▲ actual&ensp;·&ensp;expected ▼</span></td>
                           </tr>
                         )}
-                        <tr key={d.key} className={[excluded ? 'row-excluded' : '', !d.hasActualExpenses ? 'expense-row--expected' : ''].filter(Boolean).join(' ')}>
+                        <tr className={[excluded ? 'row-excluded' : '', !d.hasActualExpenses ? 'expense-row--expected' : ''].filter(Boolean).join(' ')}>
                           <td>
                             <div className="month-cell">
                               <button
-                                className={`exclude-btn${excluded ? ' active' : ''}`}
+                                className={`month-flag-btn month-flag-btn--skip${excluded ? ' active' : ''}`}
                                 onClick={() => toggleExclude(d.key)}
-                                title={excluded ? 'Include in YTD' : 'Exclude from YTD'}
+                                title={excluded ? 'Skipped: not counted in YTD' : 'Skip this month in YTD'}
+                                aria-label={`${excluded ? 'Include' : 'Skip'} ${d.label} in YTD`}
+                                aria-pressed={excluded}
                               >
-                                {excluded ? '✕' : ''}
+                                S
+                              </button>
+                              <button
+                                className={`month-flag-btn month-flag-btn--prorate${prorated ? ' active' : ''}`}
+                                onClick={() => toggleProrate(d.key)}
+                                title={prorated ? 'Prorated: fixed costs reduced by owner-use days' : 'Prorate fixed costs by owner-use days'}
+                                aria-label={`${prorated ? 'Stop prorating' : 'Prorate'} fixed costs for ${d.label}`}
+                                aria-pressed={prorated}
+                              >
+                                P
                               </button>
                               {d.label}
                             </div>
                           </td>
                           <td className="positive">{formatCurrency(d.revenue)}</td>
-                          <td>{formatCurrency(d.fixedCosts)}</td>
+                          <td className={prorated ? 'fixed-cost-prorated' : ''} title={prorated ? 'Prorated by owner-use days' : undefined}>
+                            {formatCurrency(d.fixedCosts)}
+                          </td>
                           {VARIABLE_EXPENSE_FIELDS.map(({ key }) => (
                             <td key={key}>
                               <input
@@ -455,11 +474,11 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                             </div>
                           </td>
                         </tr>
-                      </>
+                      </Fragment>
                     )
                   })}
                   {collapsed && (
-                    <tr key={`year-${year}-summary`} className="year-summary-row">
+                    <tr className="year-summary-row">
                       <td className="year-summary-label">{group.length} {group.length === 1 ? 'month' : 'months'} hidden</td>
                       <td className="positive">{formatCurrency(group.reduce((s, d) => s + d.revenue, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.fixedCosts, 0))}</td>
@@ -472,7 +491,7 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                       <td className="note-cell" />
                     </tr>
                   )}
-                </>
+                </Fragment>
               )
             })}
           </tbody>

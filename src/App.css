@@ -553,14 +553,14 @@ tr.year-header-row td {
   transform: rotate(0deg);
 }
 
-/* ── Month exclude toggle ────────────────────────────── */
+/* ── Month flag toggles (skip / prorate) ─────────────── */
 .month-cell {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 4px;
 }
 
-.exclude-btn {
+.month-flag-btn {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
@@ -573,24 +573,41 @@ tr.year-header-row td {
   justify-content: center;
   padding: 0;
   font-size: 9px;
+  font-weight: 700;
   line-height: 1;
-  color: transparent;
-  transition: border-color 0.15s;
+  color: #cbd5e0;
 }
 
-.exclude-btn:hover {
+.month-flag-btn--skip:hover {
   border-color: #e53e3e;
+  color: #e53e3e;
 }
 
-.exclude-btn.active {
+.month-flag-btn--skip.active {
   border-color: #e53e3e;
   background: #fff5f5;
   color: #e53e3e;
 }
 
+.month-flag-btn--prorate:hover {
+  border-color: #3182ce;
+  color: #3182ce;
+}
+
+.month-flag-btn--prorate.active {
+  border-color: #3182ce;
+  background: #ebf8ff;
+  color: #3182ce;
+}
+
 tr.row-excluded td {
   color: #a0aec0 !important;
   font-weight: normal !important;
+}
+
+td.fixed-cost-prorated {
+  color: #3182ce;
+  font-style: italic;
 }
 
 /* ── Year summary row (shown when year is collapsed) ─── */
