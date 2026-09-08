@@ -64,3 +64,24 @@ The app expects snake_case database columns and maps them to camelCase TypeScrip
 ## Deployment
 
 The project includes `vercel.json` with an SPA rewrite to `index.html`, so browser routes such as `/performance`, `/revenue-per-night`, `/bookings`, `/occupancy`, and `/expenses` work when deployed on Vercel.
+
+### Supabase heartbeat
+
+Free-tier Supabase projects are paused after about a week of inactivity, so
+[`api/keepalive.js`](api/keepalive.js) reads a single row from `bookings` and is
+triggered daily by the `crons` entry in `vercel.json`. It returns HTTP 500 on a
+failed ping so the run shows up as a failure in the Vercel dashboard rather than
+passing silently.
+
+Two things worth knowing:
+
+- A project that has already been paused stops resolving in DNS, so no ping can
+  revive it — it has to be restored from the Supabase dashboard. Treat a failing
+  heartbeat as something to act on within the week.
+- Set a `CRON_SECRET` environment variable in the Vercel project to reject
+  requests that do not come from Vercel Cron. Without it the endpoint is public;
+  it only ever performs a `limit=1` read, but setting it is preferable.
+
+This replaces a GitHub Actions workflow that GitHub disabled automatically after
+60 days without commits — scheduled workflows are not a dependable heartbeat for
+a repo that goes quiet.
