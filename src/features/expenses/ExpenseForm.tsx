@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment } from 'react'
+import React, { useState, useEffect, useRef, Fragment } from 'react'
 import { MonthExpense } from '../../shared/types'
 import { getFixedCosts } from '../../shared/fixedCosts'
 import { allPrincipalMonths } from '../../shared/principalGained'
@@ -72,6 +72,9 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
     tax: '0',
     misc: String(EXPECTED_VAR_COST.misc),
   }))
+  // Months touched by an edit since their last save. Expected months have no
+  // saved row until edited, so blur alone must not materialize one.
+  const dirtyKeys = useRef<Set<string>>(new Set())
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
 
@@ -113,9 +116,10 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
   )
 
   function setField(key: string, field: ExpenseKey, value: string) {
+    dirtyKeys.current.add(key)
     setDrafts(prev => ({
       ...prev,
-      [key]: { ...(prev[key] ?? zeroDraft()), [field]: value },
+      [key]: { ...(prev[key] ?? rowDraft(key)), [field]: value },
     }))
   }
 
@@ -123,15 +127,27 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
     setFutureDraft(prev => ({ ...prev, [field]: value }))
   }
 
-  function draftNumber(draft: RowDraft | undefined, field: ExpenseKey, fallback: number) {
-    if (!draft) return fallback
-    const value = Number(draft[field])
-    return Number.isFinite(value) ? value : fallback
+  // A month with no saved row falls back to its scheduled expected amounts,
+  // so the inputs are pre-filled with what the projection assumes.
+  function scheduledDraft(year: number, month: number): RowDraft {
+    return {
+      cleaning: String(expectedValue('cleaning', year, month)),
+      support: String(expectedValue('support', year, month)),
+      tax: '0',
+      misc: String(expectedValue('misc', year, month)),
+    }
   }
 
-  function expectedDisplayValue(key: string, field: ExpenseKey) {
+  function rowDraft(key: string): RowDraft {
+    const existing = drafts[key]
+    if (existing) return existing
     const { year, month } = parseKey(key)
-    return draftNumber(drafts[key], field, expectedValue(field, year, month))
+    return isPastMonth(year, month) ? zeroDraft() : scheduledDraft(year, month)
+  }
+
+  function fieldValue(key: string, field: ExpenseKey) {
+    const value = Number(rowDraft(key)[field])
+    return Number.isFinite(value) ? value : 0
   }
 
   async function handleUpdateFutureExpected() {
@@ -170,7 +186,8 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
   }
 
   function save(key: string) {
-    const draft = drafts[key] ?? zeroDraft()
+    if (!dirtyKeys.current.delete(key)) return
+    const draft = rowDraft(key)
     const { year, month } = parseKey(key)
     onSubmit(year, month, {
       cleaning: Number(draft.cleaning) || 0,
@@ -208,10 +225,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
   const colSpan = 2 + FIELDS.length + 1
 
   const colTotals = FIELDS.map(({ key: field }) =>
-    orderedKeys.reduce((s, mk) => {
-      const { year, month } = parseKey(mk)
-      return s + (isPastMonth(year, month) ? Number(drafts[mk]?.[field]) || 0 : expectedDisplayValue(mk, field))
-    }, 0)
+    orderedKeys.reduce((s, mk) => s + fieldValue(mk, field), 0)
   )
   const grandTotal = colTotals.reduce((s, v) => s + v, 0)
   const totalFixedCosts = orderedKeys.reduce((s, mk) => {
@@ -262,10 +276,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                 const collapsed = collapsedYears.has(year)
                 const yearFixed = keys.reduce((s, k) => s + (getFixedCosts(parseKey(k).year, parseKey(k).month) ?? 0), 0)
                 const yearColTotals = FIELDS.map(({ key: field }) =>
-                  keys.reduce((s, k) => {
-                    const { year: y, month: m } = parseKey(k)
-                    return s + (isPastMonth(y, m) ? Number(drafts[k]?.[field]) || 0 : expectedDisplayValue(k, field))
-                  }, 0)
+                  keys.reduce((s, k) => s + fieldValue(k, field), 0)
                 )
                 const yearGrandTotal = yearColTotals.reduce((s, v) => s + v, 0)
                 return (
@@ -291,13 +302,11 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                       </tr>
                     ) : (
                       keys.map(key => {
-                        const draft = drafts[key] ?? zeroDraft()
+                        const draft = rowDraft(key)
                         const { year: y, month: m } = parseKey(key)
                         const expected = !isPastMonth(y, m)
                         const fixedCosts = getFixedCosts(y, m)
-                        const rowTotal = expected
-                          ? FIELDS.reduce((s, { key: f }) => s + expectedDisplayValue(key, f), 0)
-                          : FIELDS.reduce((s, { key: f }) => s + (Number(draft[f]) || 0), 0)
+                        const rowTotal = FIELDS.reduce((s, { key: f }) => s + fieldValue(key, f), 0)
                         const showDivider = key === firstFutureKey
                         return (
                           <React.Fragment key={key}>
@@ -313,19 +322,15 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                               <td>{fixedCosts !== null ? formatCurrency(fixedCosts) : '—'}</td>
                               {FIELDS.map(({ key: field }) => (
                                 <td key={field}>
-                                  {expected ? (
-                                    <span className="expected-value">{formatCurrency(expectedDisplayValue(key, field))}</span>
-                                  ) : (
-                                    <input
-                                      className="expense-input"
-                                      type="number"
-                                      min="0"
-                                      step="any"
-                                      value={draft[field]}
-                                      onChange={e => setField(key, field, e.target.value)}
-                                      onBlur={() => save(key)}
-                                    />
-                                  )}
+                                  <input
+                                    className={`expense-input${expected ? ' expense-input--expected' : ''}`}
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    value={draft[field]}
+                                    onChange={e => setField(key, field, e.target.value)}
+                                    onBlur={() => save(key)}
+                                  />
                                 </td>
                               ))}
                               <td>{formatCurrency(rowTotal)}</td>
