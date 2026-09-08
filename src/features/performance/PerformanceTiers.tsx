@@ -6,8 +6,7 @@ import { getPrincipalGained, allPrincipalMonths } from '../../shared/principalGa
 import { getFixedCosts, applyOurDaysAdjustment } from '../../shared/fixedCosts'
 import { getExpectedVarCost, getExpectedVarTotal } from '../../shared/expectedVariableCost'
 import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
-import { useExcludedMonths } from './useExcludedMonths'
-import { useProratedMonths } from './useProratedMonths'
+import { usePerformanceMonthFlags } from './usePerformanceMonthFlags'
 import { usePerformanceNotes } from './usePerformanceNotes'
 import { useActualTaxes } from './useActualTaxes'
 import { useOccupancy, OccupancyEntry } from '../occupancy/useOccupancy'
@@ -36,6 +35,7 @@ interface MonthPerf {
   misc: number
   variableExpenses: number
   fixedCosts: number
+  countedFixedCosts: number
   allExpenses: number
   principal: number
   tier2: number
@@ -49,7 +49,7 @@ function getDaysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate()
 }
 
-function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: Record<string, number>, occupancyEntries: OccupancyEntry[], proratedMonths: Set<string>): MonthPerf[] {
+function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: Record<string, number>, occupancyEntries: OccupancyEntry[], proratedMonths: Set<string>, variableOnlyMonths: Set<string>): MonthPerf[] {
   const today = new Date()
   const currentYear = today.getFullYear()
   const currentMonth = today.getMonth() + 1
@@ -71,6 +71,12 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
     return applyOurDaysAdjustment(full, ourDays, getDaysInMonth(year, month))
   }
 
+  // Variable-only months still display their fixed costs, but the tier math
+  // counts everything except them.
+  function countFixed(key: string, fixedCosts: number): number {
+    return variableOnlyMonths.has(key) ? 0 : fixedCosts
+  }
+
   const map = new Map<string, MonthPerf>()
 
   for (const { year, month } of allPrincipalMonths()) {
@@ -79,7 +85,8 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
     const principal = getPrincipalGained(year, month) ?? 0
     const { cleaning, support, misc } = getExpectedVarCost(year, month)
     const varExp = getExpectedVarTotal(year, month)
-    const allExpenses = varExp + fixedCosts
+    const countedFixedCosts = countFixed(key, fixedCosts)
+    const allExpenses = varExp + countedFixedCosts
     map.set(key, {
       key,
       label: `${MONTH_NAMES[month - 1]} ${year}`,
@@ -92,6 +99,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
       misc,
       variableExpenses: varExp,
       fixedCosts,
+      countedFixedCosts,
       allExpenses,
       principal,
       tier2: -allExpenses,
@@ -107,7 +115,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
     if (existing) {
       existing.revenue = rev.revenue
       existing.taxes = taxes
-      existing.allExpenses = existing.variableExpenses + existing.fixedCosts + taxes
+      existing.allExpenses = existing.variableExpenses + existing.countedFixedCosts + taxes
       existing.tier2 = rev.revenue - existing.allExpenses
       existing.tier1 = rev.revenue + existing.principal - existing.allExpenses
     } else {
@@ -115,7 +123,8 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
       const principal = getPrincipalGained(rev.year, rev.month) ?? 0
       const { cleaning, support, misc } = getExpectedVarCost(rev.year, rev.month)
       const varExp = getExpectedVarTotal(rev.year, rev.month)
-      const allExpenses = varExp + fixedCosts + taxes
+      const countedFixedCosts = countFixed(key, fixedCosts)
+      const allExpenses = varExp + countedFixedCosts + taxes
       map.set(key, {
         key,
         label: rev.label,
@@ -128,6 +137,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
         misc,
         variableExpenses: varExp,
         fixedCosts,
+        countedFixedCosts,
         allExpenses,
         principal,
         tier2: rev.revenue - allExpenses,
@@ -148,14 +158,15 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
       existing.support = support
       existing.misc = misc
       existing.variableExpenses = varExp
-      existing.allExpenses = varExp + existing.fixedCosts + existing.taxes
+      existing.allExpenses = varExp + existing.countedFixedCosts + existing.taxes
       existing.tier2 = existing.revenue - existing.allExpenses
       existing.tier1 = existing.revenue + existing.principal - existing.allExpenses
       existing.hasActualExpenses = hasActualExpenses
     } else {
       const fixedCosts = adjustedFixedCosts(key, exp.year, exp.month)
       const principal = getPrincipalGained(exp.year, exp.month) ?? 0
-      const allExpenses = varExp + fixedCosts
+      const countedFixedCosts = countFixed(key, fixedCosts)
+      const allExpenses = varExp + countedFixedCosts
       map.set(key, {
         key,
         label: `${MONTH_NAMES[exp.month - 1]} ${exp.year}`,
@@ -168,6 +179,7 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
         misc,
         variableExpenses: varExp,
         fixedCosts,
+        countedFixedCosts,
         allExpenses,
         principal,
         tier2: -allExpenses,
@@ -221,9 +233,8 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
   const taxOriginalsRef = useRef<Record<string, number>>({})
   const [expenseDrafts, setExpenseDrafts] = useState<Record<string, Partial<Record<VariableExpenseKey, string>>>>({})
   const expenseOriginalsRef = useRef<Record<string, Partial<Record<VariableExpenseKey, number>>>>({})
-  const { excludedMonths, toggleExclude } = useExcludedMonths()
-  const { proratedMonths, toggleProrate } = useProratedMonths()
-  const data = mergePerf(bookings, expenses, actualTaxes, occupancyEntries, proratedMonths)
+  const { excludedMonths, proratedMonths, variableOnlyMonths, toggleFlag } = usePerformanceMonthFlags()
+  const data = mergePerf(bookings, expenses, actualTaxes, occupancyEntries, proratedMonths, variableOnlyMonths)
   const thisYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
     () => getDefaultCollapsedYears(data.map(d => d.year), thisYear)
@@ -372,6 +383,7 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                   {!collapsed && group.map((d, i) => {
                     const excluded = excludedMonths.has(d.key)
                     const prorated = proratedMonths.has(d.key)
+                    const variableOnly = variableOnlyMonths.has(d.key)
                     const prev = group[i - 1]
                     const showDivider = prev && prev.hasActualExpenses && !d.hasActualExpenses
                     return (
@@ -386,7 +398,7 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                             <div className="month-cell">
                               <button
                                 className={`month-flag-btn month-flag-btn--skip${excluded ? ' active' : ''}`}
-                                onClick={() => toggleExclude(d.key)}
+                                onClick={() => toggleFlag(d.key, 'excluded')}
                                 title={excluded ? 'Skipped: not counted in YTD' : 'Skip this month in YTD'}
                                 aria-label={`${excluded ? 'Include' : 'Skip'} ${d.label} in YTD`}
                                 aria-pressed={excluded}
@@ -395,18 +407,30 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                               </button>
                               <button
                                 className={`month-flag-btn month-flag-btn--prorate${prorated ? ' active' : ''}`}
-                                onClick={() => toggleProrate(d.key)}
+                                onClick={() => toggleFlag(d.key, 'prorated')}
                                 title={prorated ? 'Prorated: fixed costs reduced by owner-use days' : 'Prorate fixed costs by owner-use days'}
                                 aria-label={`${prorated ? 'Stop prorating' : 'Prorate'} fixed costs for ${d.label}`}
                                 aria-pressed={prorated}
                               >
                                 P
                               </button>
+                              <button
+                                className={`month-flag-btn month-flag-btn--variable-only${variableOnly ? ' active' : ''}`}
+                                onClick={() => toggleFlag(d.key, 'variable_only')}
+                                title={variableOnly ? 'Variable only: every cost but fixed costs counts' : 'Count every cost except fixed costs'}
+                                aria-label={`${variableOnly ? 'Stop excluding' : 'Exclude'} fixed costs for ${d.label}`}
+                                aria-pressed={variableOnly}
+                              >
+                                V
+                              </button>
                               {d.label}
                             </div>
                           </td>
                           <td className="positive">{formatCurrency(d.revenue)}</td>
-                          <td className={prorated ? 'fixed-cost-prorated' : ''} title={prorated ? 'Prorated by owner-use days' : undefined}>
+                          <td
+                            className={[prorated ? 'fixed-cost-prorated' : '', variableOnly ? 'fixed-cost-uncounted' : ''].filter(Boolean).join(' ')}
+                            title={variableOnly ? 'Not counted: variable costs only' : prorated ? 'Prorated by owner-use days' : undefined}
+                          >
                             {formatCurrency(d.fixedCosts)}
                           </td>
                           {VARIABLE_EXPENSE_FIELDS.map(({ key }) => (
@@ -487,7 +511,7 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                     <tr className="year-summary-row">
                       <td className="year-summary-label">{group.length} {group.length === 1 ? 'month' : 'months'} hidden</td>
                       <td className="positive">{formatCurrency(group.reduce((s, d) => s + d.revenue, 0))}</td>
-                      <td>{formatCurrency(group.reduce((s, d) => s + d.fixedCosts, 0))}</td>
+                      <td>{formatCurrency(group.reduce((s, d) => s + d.countedFixedCosts, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.cleaning, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.support, 0))}</td>
                       <td>{formatCurrency(group.reduce((s, d) => s + d.misc, 0))}</td>

@@ -4,7 +4,7 @@ import { getFixedCosts, applyOurDaysAdjustment } from '../../shared/fixedCosts'
 import { allPrincipalMonths } from '../../shared/principalGained'
 import { getExpectedVarCost, resolveExpectedForMonth, isScheduleActive, EXPECTED_VAR_COST } from '../../shared/expectedVariableCost'
 import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
-import { useExpenseExcludedMonths, useExpenseProratedMonths } from './useExpenseMonthFlags'
+import { useExpenseMonthFlags } from './useExpenseMonthFlags'
 import { useOccupancy } from '../occupancy/useOccupancy'
 
 type ExpenseKey = 'cleaning' | 'support' | 'tax' | 'misc'
@@ -83,8 +83,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
   const dirtyKeys = useRef<Set<string>>(new Set())
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
-  const { excludedMonths, toggleExclude } = useExpenseExcludedMonths()
-  const { proratedMonths, toggleProrate } = useExpenseProratedMonths()
+  const { excludedMonths, proratedMonths, variableOnlyMonths, toggleFlag } = useExpenseMonthFlags()
   const { entries: occupancyEntries } = useOccupancy()
   const ourDaysByKey = new Map(
     occupancyEntries.map(e => [monthKey(e.year, e.month), e.ourDays])
@@ -97,6 +96,13 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
     const full = getFixedCosts(year, month)
     if (full === null || !proratedMonths.has(key)) return full
     return applyOurDaysAdjustment(full, ourDaysByKey.get(key) ?? 0, daysInMonth(year, month))
+  }
+
+  // Variable-only months still show their fixed cost, but the totals count
+  // every other cost and leave that one out.
+  function countedFixedCostFor(key: string): number {
+    if (variableOnlyMonths.has(key)) return 0
+    return fixedCostFor(key) ?? 0
   }
 
   // Merge rows arriving from Supabase without overwriting in-progress local edits
@@ -251,7 +257,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
     includedKeys.reduce((s, mk) => s + fieldValue(mk, field), 0)
   )
   const grandTotal = colTotals.reduce((s, v) => s + v, 0)
-  const totalFixedCosts = includedKeys.reduce((s, mk) => s + (fixedCostFor(mk) ?? 0), 0)
+  const totalFixedCosts = includedKeys.reduce((s, mk) => s + countedFixedCostFor(mk), 0)
 
   return (
     <div className="expense-table">
@@ -295,7 +301,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                 const keys = keysByYear.get(year) ?? []
                 const collapsed = collapsedYears.has(year)
                 const includedYearKeys = keys.filter(k => !excludedMonths.has(k))
-                const yearFixed = includedYearKeys.reduce((s, k) => s + (fixedCostFor(k) ?? 0), 0)
+                const yearFixed = includedYearKeys.reduce((s, k) => s + countedFixedCostFor(k), 0)
                 const yearColTotals = FIELDS.map(({ key: field }) =>
                   includedYearKeys.reduce((s, k) => s + fieldValue(k, field), 0)
                 )
@@ -333,6 +339,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                         const fixedCosts = fixedCostFor(key)
                         const excluded = excludedMonths.has(key)
                         const prorated = proratedMonths.has(key)
+                        const variableOnly = variableOnlyMonths.has(key)
                         const rowTotal = FIELDS.reduce((s, { key: f }) => s + fieldValue(key, f), 0)
                         const showDivider = key === firstFutureKey
                         return (
@@ -350,7 +357,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                                   <button
                                     type="button"
                                     className={`month-flag-btn month-flag-btn--skip${excluded ? ' active' : ''}`}
-                                    onClick={() => toggleExclude(key)}
+                                    onClick={() => toggleFlag(key, 'excluded')}
                                     title={excluded ? 'Skipped: not counted in totals' : 'Skip this month in totals'}
                                     aria-label={`${excluded ? 'Include' : 'Skip'} ${monthLabel(y, m)} in totals`}
                                     aria-pressed={excluded}
@@ -360,17 +367,30 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                                   <button
                                     type="button"
                                     className={`month-flag-btn month-flag-btn--prorate${prorated ? ' active' : ''}`}
-                                    onClick={() => toggleProrate(key)}
+                                    onClick={() => toggleFlag(key, 'prorated')}
                                     title={prorated ? 'Prorated: fixed costs reduced by owner-use days' : 'Prorate fixed costs by owner-use days'}
                                     aria-label={`${prorated ? 'Stop prorating' : 'Prorate'} fixed costs for ${monthLabel(y, m)}`}
                                     aria-pressed={prorated}
                                   >
                                     P
                                   </button>
+                                  <button
+                                    type="button"
+                                    className={`month-flag-btn month-flag-btn--variable-only${variableOnly ? ' active' : ''}`}
+                                    onClick={() => toggleFlag(key, 'variable_only')}
+                                    title={variableOnly ? 'Variable only: every cost but fixed costs counts' : 'Count every cost except fixed costs'}
+                                    aria-label={`${variableOnly ? 'Stop excluding' : 'Exclude'} fixed costs for ${monthLabel(y, m)}`}
+                                    aria-pressed={variableOnly}
+                                  >
+                                    V
+                                  </button>
                                   {monthLabel(y, m)}
                                 </div>
                               </td>
-                              <td className={prorated ? 'fixed-cost-prorated' : ''} title={prorated ? 'Prorated by owner-use days' : undefined}>
+                              <td
+                                className={[prorated ? 'fixed-cost-prorated' : '', variableOnly ? 'fixed-cost-uncounted' : ''].filter(Boolean).join(' ')}
+                                title={variableOnly ? 'Not counted: variable costs only' : prorated ? 'Prorated by owner-use days' : undefined}
+                              >
                                 {fixedCosts !== null ? formatCurrency(fixedCosts) : '—'}
                               </td>
                               {FIELDS.map(({ key: field }) => (

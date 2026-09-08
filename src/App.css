@@ -600,6 +600,17 @@ tr.year-header-row td {
   color: #3182ce;
 }
 
+.month-flag-btn--variable-only:hover {
+  border-color: #805ad5;
+  color: #805ad5;
+}
+
+.month-flag-btn--variable-only.active {
+  border-color: #805ad5;
+  background: #faf5ff;
+  color: #805ad5;
+}
+
 tr.row-excluded td {
   color: #a0aec0 !important;
   font-weight: normal !important;
@@ -608,6 +619,11 @@ tr.row-excluded td {
 td.fixed-cost-prorated {
   color: #3182ce;
   font-style: italic;
+}
+
+td.fixed-cost-uncounted {
+  color: #805ad5;
+  text-decoration: line-through;
 }
 
 /* ── Year summary row (shown when year is collapsed) ─── */

@@ -1,17 +1,14 @@
-import { useMonthFlags } from '../../lib/useMonthFlags'
+import { useMonthFlags, FlagTables } from '../../lib/useMonthFlags'
 
-// The Expenses tab keeps its own skip/prorate flags, independent of the
-// Performance tab's — flagging a month in one view never affects the other.
-
-// Skipped months are left out of the Expenses tab's column, year, and grand totals.
-export function useExpenseExcludedMonths() {
-  const { flagged, toggle } = useMonthFlags('expense_excluded_months', 'excluded')
-  return { excludedMonths: flagged, toggleExclude: toggle }
+// The Expenses tab keeps its own flags, independent of the Performance tab's.
+// A month carries at most one: S skips it from the totals, P prorates its fixed
+// costs by owner-use days, V counts every cost except the fixed ones.
+const TABLES: FlagTables = {
+  excluded: 'expense_excluded_months',
+  prorated: 'expense_prorated_months',
+  variable_only: 'expense_variable_only_months',
 }
 
-// Prorated months scale fixed costs down by the owner-use days recorded in the
-// occupancy table. Off by default: fixed costs are flat unless a month opts in.
-export function useExpenseProratedMonths() {
-  const { flagged, toggle } = useMonthFlags('expense_prorated_months', 'prorated')
-  return { proratedMonths: flagged, toggleProrate: toggle }
+export function useExpenseMonthFlags() {
+  return useMonthFlags(TABLES)
 }
