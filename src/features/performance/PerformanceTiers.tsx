@@ -4,7 +4,7 @@ import { Booking, MonthExpense } from '../../shared/types'
 import { aggregateMonthlyRevenue } from '../../shared/revenueDistribution'
 import { getPrincipalGained, allPrincipalMonths } from '../../shared/principalGained'
 import { getFixedCosts, applyOurDaysAdjustment } from '../../shared/fixedCosts'
-import { EXPECTED_VAR_COST, EXPECTED_VAR_TOTAL } from '../../shared/expectedVariableCost'
+import { getExpectedVarCost, getExpectedVarTotal } from '../../shared/expectedVariableCost'
 import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
 import { useExcludedMonths } from './useExcludedMonths'
 import { usePerformanceNotes } from './usePerformanceNotes'
@@ -73,10 +73,8 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
     const key = `${year}-${String(month).padStart(2, '0')}`
     const fixedCosts = adjustedFixedCosts(key, year, month)
     const principal = getPrincipalGained(year, month) ?? 0
-    const cleaning = EXPECTED_VAR_COST.cleaning
-    const support = EXPECTED_VAR_COST.support
-    const misc = EXPECTED_VAR_COST.misc
-    const varExp = EXPECTED_VAR_TOTAL
+    const { cleaning, support, misc } = getExpectedVarCost(year, month)
+    const varExp = getExpectedVarTotal(year, month)
     const allExpenses = varExp + fixedCosts
     map.set(key, {
       key,
@@ -111,10 +109,8 @@ function mergePerf(bookings: Booking[], expenses: MonthExpense[], actualTaxes: R
     } else {
       const fixedCosts = adjustedFixedCosts(key, rev.year, rev.month)
       const principal = getPrincipalGained(rev.year, rev.month) ?? 0
-      const cleaning = EXPECTED_VAR_COST.cleaning
-      const support = EXPECTED_VAR_COST.support
-      const misc = EXPECTED_VAR_COST.misc
-      const varExp = EXPECTED_VAR_TOTAL
+      const { cleaning, support, misc } = getExpectedVarCost(rev.year, rev.month)
+      const varExp = getExpectedVarTotal(rev.year, rev.month)
       const allExpenses = varExp + fixedCosts + taxes
       map.set(key, {
         key,
