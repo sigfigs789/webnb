@@ -124,10 +124,10 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
             <tr>
               <th>Name</th>
               <th>Gross Revenue</th>
-              <th>Booking Date</th>
               <th>Check-in</th>
               <th>Check-out</th>
               <th>Duration</th>
+              <th>Booking Date</th>
               <th>Gross Revenue/day</th>
               <th>Actions</th>
             </tr>
@@ -196,18 +196,6 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                             {isEditing ? (
                               <input
                                 type="date"
-                                value={editValues!.bookingDate}
-                                onChange={e => setField('bookingDate', e.target.value)}
-                                onClick={e => e.stopPropagation()}
-                              />
-                            ) : (
-                              formatDate(b.bookingDate)
-                            )}
-                          </td>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                type="date"
                                 value={editValues!.startDate}
                                 onChange={e => setField('startDate', e.target.value)}
                                 onClick={e => e.stopPropagation()}
@@ -233,6 +221,18 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                               ? calcNights(editValues!.startDate, editValues!.endDate)
                               : calcNights(b.startDate, b.endDate)
                             }
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                type="date"
+                                value={editValues!.bookingDate}
+                                onChange={e => setField('bookingDate', e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                              />
+                            ) : (
+                              formatDate(b.bookingDate)
+                            )}
                           </td>
                           <td>
                             {isEditing
