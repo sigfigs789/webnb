@@ -256,8 +256,8 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
   const colTotals = FIELDS.map(({ key: field }) =>
     includedKeys.reduce((s, mk) => s + fieldValue(mk, field), 0)
   )
-  const grandTotal = colTotals.reduce((s, v) => s + v, 0)
   const totalFixedCosts = includedKeys.reduce((s, mk) => s + countedFixedCostFor(mk), 0)
+  const grandTotal = colTotals.reduce((s, v) => s + v, totalFixedCosts)
 
   return (
     <div className="expense-table">
@@ -305,7 +305,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                 const yearColTotals = FIELDS.map(({ key: field }) =>
                   includedYearKeys.reduce((s, k) => s + fieldValue(k, field), 0)
                 )
-                const yearGrandTotal = yearColTotals.reduce((s, v) => s + v, 0)
+                const yearGrandTotal = yearColTotals.reduce((s, v) => s + v, yearFixed)
                 return (
                   <Fragment key={`year-${year}`}>
                     <tr className="year-header-row">
@@ -340,7 +340,10 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                         const excluded = excludedMonths.has(key)
                         const prorated = proratedMonths.has(key)
                         const variableOnly = variableOnlyMonths.has(key)
-                        const rowTotal = FIELDS.reduce((s, { key: f }) => s + fieldValue(key, f), 0)
+                        const rowTotal = FIELDS.reduce(
+                          (s, { key: f }) => s + fieldValue(key, f),
+                          countedFixedCostFor(key),
+                        )
                         const showDivider = key === firstFutureKey
                         return (
                           <React.Fragment key={key}>
