@@ -103,10 +103,10 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
       return next
     })
 
-  const sorted = [...bookings].sort((a, b) => b.startDate.localeCompare(a.startDate))
+  const sorted = [...bookings].sort((a, b) => a.startDate.localeCompare(b.startDate))
 
-  // Group by check-in year, newest year first
-  const years = Array.from(new Set(sorted.map(b => Number(b.startDate.slice(0, 4))))).sort((a, b) => b - a)
+  // Group by check-in year, oldest year first
+  const years = Array.from(new Set(sorted.map(b => Number(b.startDate.slice(0, 4))))).sort((a, b) => a - b)
   const byYear = new Map<number, typeof sorted>()
   for (const b of sorted) {
     const year = Number(b.startDate.slice(0, 4))
