@@ -8,6 +8,16 @@
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
   padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.btn-sign-out {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
 .app-header h1 {
@@ -820,6 +830,12 @@ td.note-cell {
   .btn-secondary {
     width: 100%;
   }
+
+  /* ...but the header's sign-out sits beside the title, so it keeps its
+     natural width. */
+  .btn-sign-out {
+    width: auto;
+  }
 }
 
 /* ── Revenue per night chart ─────────────────────────── */
@@ -990,4 +1006,40 @@ td.note-cell {
   .revenue-chart__stats {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* ── Password gate ───────────────────────────────────── */
+.gate {
+  min-height: 100vh;
+  background: #f5f6fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.gate-card {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gate-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1a202c;
+  letter-spacing: -0.02em;
+}
+
+.gate-hint {
+  font-size: 0.8rem;
+  color: #718096;
+  margin-top: -0.5rem;
+}
+
+.gate-card button[type='submit']:disabled {
+  background: #cbd5e0;
+  cursor: not-allowed;
 }
