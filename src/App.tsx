@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import { useBookings } from './features/booking-input/useBookings'
 import { useExpenses } from './features/expenses/useExpenses'
 import { BookingForm } from './features/booking-input/BookingForm'
@@ -92,6 +93,7 @@ function App() {
         </Routes>
         )}
       </main>
+      <Analytics />
     </div>
   )
 }
