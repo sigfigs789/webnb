@@ -281,11 +281,6 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
     })
     if (val === original) return
 
-    const ok = window.confirm(
-      `Change ${field} for ${month.label} from $${original.toFixed(2)} to $${val.toFixed(2)}?`
-    )
-    if (!ok) return
-
     const existing = expenses.find(e => e.year === month.year && e.month === month.month)
     onSetExpense(month.year, month.month, {
       cleaning: field === 'cleaning' ? val : month.cleaning,
@@ -476,12 +471,7 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                                 const original = roundToCents(taxOriginalsRef.current[d.key] ?? d.taxes)
                                 const val = roundToCents(Math.max(0, Number(e.target.value) || 0))
                                 setTaxDrafts(prev => { const next = { ...prev }; delete next[d.key]; return next })
-                                if (val !== original) {
-                                  const ok = window.confirm(
-                                    `Change tax for ${d.label} from $${original.toFixed(2)} to $${val.toFixed(2)}?`
-                                  )
-                                  if (ok) upsertTax(d.year, d.month, val)
-                                }
+                                if (val !== original) upsertTax(d.year, d.month, val)
                               }}
                               onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                             />
