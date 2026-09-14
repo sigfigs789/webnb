@@ -1,5 +1,7 @@
 import { useState, Fragment } from 'react'
 import { Booking } from '../../shared/types'
+import { cellNumber, isBrokenFormula, FORMULA_HINT } from '../../shared/formula'
+import { useFormulaMemory } from '../../shared/useFormulaMemory'
 
 interface Props {
   bookings: Booking[]
@@ -46,6 +48,7 @@ function formatCurrency(n: number) {
 export function BookingList({ bookings, onUpdate, onDelete }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<EditValues | null>(null)
+  const formulas = useFormulaMemory()
   const currentYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
     () => new Set(bookings.map(b => Number(b.startDate.slice(0, 4))).filter(y => y < currentYear))
@@ -72,7 +75,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
     const existing = bookings.find(b => b.id === editingId)
     onUpdate(editingId, {
       name: editValues.name.trim(),
-      revenue: Number(editValues.revenue),
+      revenue: cellNumber(editValues.revenue),
       passThroughTax: existing?.passThroughTax ?? 0,
       bookingDate: editValues.bookingDate,
       startDate: editValues.startDate,
@@ -181,11 +184,17 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                           <td>
                             {isEditing ? (
                               <input
-                                type="number"
+                                className={isBrokenFormula(editValues!.revenue) ? 'expense-input--invalid' : undefined}
+                                type="text"
+                                inputMode="decimal"
+                                title={FORMULA_HINT}
                                 value={editValues!.revenue}
                                 onChange={e => setField('revenue', e.target.value)}
-                                min="0"
-                                step="any"
+                                onFocus={() => {
+                                  const source = formulas.recall(`${b.id}:revenue`, editValues!.revenue)
+                                  if (source) setField('revenue', source)
+                                }}
+                                onBlur={e => setField('revenue', formulas.commit(`${b.id}:revenue`, e.target.value))}
                                 onClick={e => e.stopPropagation()}
                               />
                             ) : (
@@ -236,7 +245,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                           </td>
                           <td>
                             {isEditing
-                              ? calcRevenuePerDay(Number(editValues!.revenue), editValues!.startDate, editValues!.endDate)
+                              ? calcRevenuePerDay(cellNumber(editValues!.revenue), editValues!.startDate, editValues!.endDate)
                               : calcRevenuePerDay(b.revenue, b.startDate, b.endDate)
                             }
                           </td>
