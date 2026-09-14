@@ -1,6 +1,7 @@
 import { useState, Fragment } from 'react'
 import { Booking } from '../../shared/types'
-import { cellNumber, isBrokenFormula, resolveCell, FORMULA_HINT } from '../../shared/formula'
+import { cellNumber, isBrokenFormula, FORMULA_HINT } from '../../shared/formula'
+import { useFormulaMemory } from '../../shared/useFormulaMemory'
 
 interface Props {
   bookings: Booking[]
@@ -47,6 +48,7 @@ function formatCurrency(n: number) {
 export function BookingList({ bookings, onUpdate, onDelete }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<EditValues | null>(null)
+  const formulas = useFormulaMemory()
   const currentYear = new Date().getFullYear()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
     () => new Set(bookings.map(b => Number(b.startDate.slice(0, 4))).filter(y => y < currentYear))
@@ -188,7 +190,11 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                                 title={FORMULA_HINT}
                                 value={editValues!.revenue}
                                 onChange={e => setField('revenue', e.target.value)}
-                                onBlur={e => setField('revenue', resolveCell(e.target.value))}
+                                onFocus={() => {
+                                  const source = formulas.recall(`${b.id}:revenue`, editValues!.revenue)
+                                  if (source) setField('revenue', source)
+                                }}
+                                onBlur={e => setField('revenue', formulas.commit(`${b.id}:revenue`, e.target.value))}
                                 onClick={e => e.stopPropagation()}
                               />
                             ) : (

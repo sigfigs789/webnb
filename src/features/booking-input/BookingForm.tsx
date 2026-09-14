@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Booking } from '../../shared/types'
-import { cellNumber, evaluateFormula, isBrokenFormula, resolveCell, FORMULA_HINT } from '../../shared/formula'
+import { cellNumber, evaluateFormula, isBrokenFormula, FORMULA_HINT } from '../../shared/formula'
+import { useFormulaMemory } from '../../shared/useFormulaMemory'
 
 interface Props {
   onSubmit: (booking: Omit<Booking, 'id'>) => void
@@ -22,6 +23,7 @@ type FormValues = typeof emptyValues
 export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
   const [values, setValues] = useState<FormValues>(emptyValues)
   const [errors, setErrors] = useState<Partial<FormValues>>({})
+  const formulas = useFormulaMemory()
 
   useEffect(() => {
     if (initialValues) {
@@ -103,7 +105,11 @@ export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
             title={FORMULA_HINT}
             value={values.revenue}
             onChange={e => setField('revenue', e.target.value)}
-            onBlur={e => setField('revenue', resolveCell(e.target.value))}
+            onFocus={() => {
+              const source = formulas.recall('revenue', values.revenue)
+              if (source) setField('revenue', source)
+            }}
+            onBlur={e => setField('revenue', formulas.commit('revenue', e.target.value))}
             placeholder="0.00"
           />
           {errors.revenue && <span className="form-error">{errors.revenue}</span>}
@@ -119,7 +125,11 @@ export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
             title={FORMULA_HINT}
             value={values.passThroughTax}
             onChange={e => setField('passThroughTax', e.target.value)}
-            onBlur={e => setField('passThroughTax', resolveCell(e.target.value))}
+            onFocus={() => {
+              const source = formulas.recall('passThroughTax', values.passThroughTax)
+              if (source) setField('passThroughTax', source)
+            }}
+            onBlur={e => setField('passThroughTax', formulas.commit('passThroughTax', e.target.value))}
             placeholder="0.00"
           />
         </div>

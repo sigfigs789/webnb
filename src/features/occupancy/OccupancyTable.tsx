@@ -3,7 +3,8 @@ import { Booking } from '../../shared/types'
 import { aggregateAirbnbDays, fillMonthGaps } from '../../shared/occupancyDays'
 import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
 import { useOccupancy } from './useOccupancy'
-import { cellNumber, isBrokenFormula, resolveCell, FORMULA_HINT } from '../../shared/formula'
+import { cellNumber, isBrokenFormula, FORMULA_HINT } from '../../shared/formula'
+import { useFormulaMemory } from '../../shared/useFormulaMemory'
 
 interface Props {
   bookings: Booking[]
@@ -23,6 +24,7 @@ export function OccupancyTable({ bookings }: Props) {
   const thisYear = new Date().getFullYear()
 
   const [drafts, setDrafts] = useState<Record<string, OccupancyDraft>>({})
+  const formulas = useFormulaMemory()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
     () => getDefaultCollapsedYears(months.map(m => m.year), thisYear)
   )
@@ -58,9 +60,16 @@ export function OccupancyTable({ bookings }: Props) {
     setDrafts(prev => ({ ...prev, [key]: { ...(prev[key] ?? zeroDraft()), [field]: value } }))
   }
 
-  // Commit a cell: a formula collapses to its result before the row is saved.
+  function focusField(year: number, month: number, field: keyof OccupancyDraft) {
+    const key = monthKey(year, month)
+    const source = formulas.recall(`${key}:${field}`, getDraft(year, month)[field])
+    if (source) setField(year, month, field, source)
+  }
+
+  // Commit a cell: a formula collapses to its result, and is remembered so the
+  // cell shows the formula again the next time it is focused.
   function commitField(year: number, month: number, field: keyof OccupancyDraft, raw: string) {
-    const resolved = resolveCell(raw)
+    const resolved = formulas.commit(`${monthKey(year, month)}:${field}`, raw)
     if (resolved !== raw) setField(year, month, field, resolved)
     save(year, month, { ...getDraft(year, month), [field]: resolved })
   }
@@ -192,6 +201,7 @@ export function OccupancyTable({ bookings }: Props) {
                               title={FORMULA_HINT}
                               value={kindredDays}
                               onChange={e => setField(m.year, m.month, 'kindredDays', e.target.value)}
+                              onFocus={() => focusField(m.year, m.month, 'kindredDays')}
                               onBlur={e => commitField(m.year, m.month, 'kindredDays', e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                             />
@@ -204,6 +214,7 @@ export function OccupancyTable({ bookings }: Props) {
                               title={FORMULA_HINT}
                               value={ourDays}
                               onChange={e => setField(m.year, m.month, 'ourDays', e.target.value)}
+                              onFocus={() => focusField(m.year, m.month, 'ourDays')}
                               onBlur={e => commitField(m.year, m.month, 'ourDays', e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                             />

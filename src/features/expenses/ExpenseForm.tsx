@@ -4,7 +4,8 @@ import { getFixedCosts } from '../../shared/fixedCosts'
 import { allPrincipalMonths } from '../../shared/principalGained'
 import { getExpectedVarCost, resolveExpectedForMonth, isScheduleActive, EXPECTED_VAR_COST } from '../../shared/expectedVariableCost'
 import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
-import { cellNumber, isBrokenFormula, resolveCell, FORMULA_HINT } from '../../shared/formula'
+import { cellNumber, isBrokenFormula, FORMULA_HINT } from '../../shared/formula'
+import { useFormulaMemory } from '../../shared/useFormulaMemory'
 
 type ExpenseKey = 'cleaning' | 'support' | 'tax' | 'misc'
 type RowDraft = Record<ExpenseKey, string>
@@ -76,6 +77,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
   // Months touched by an edit since their last save. Expected months have no
   // saved row until edited, so blur alone must not materialize one.
   const dirtyKeys = useRef<Set<string>>(new Set())
+  const formulas = useFormulaMemory()
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
   function fixedCostFor(key: string): number | null {
@@ -120,6 +122,19 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   )
 
+  // Swapping a cell between its formula and its result is not itself an edit.
+  function showInField(key: string, field: ExpenseKey, value: string) {
+    setDrafts(prev => ({
+      ...prev,
+      [key]: { ...(prev[key] ?? rowDraft(key)), [field]: value },
+    }))
+  }
+
+  function focusField(key: string, field: ExpenseKey) {
+    const source = formulas.recall(`${key}:${field}`, rowDraft(key)[field])
+    if (source) showInField(key, field, source)
+  }
+
   function setField(key: string, field: ExpenseKey, value: string) {
     dirtyKeys.current.add(key)
     setDrafts(prev => ({
@@ -154,10 +169,11 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
     return cellNumber(rowDraft(key)[field])
   }
 
-  // Commit a cell: a formula collapses to its result before the row is saved.
+  // Commit a cell: a formula collapses to its result, and is remembered so the
+  // cell shows the formula again the next time it is focused.
   function commitField(key: string, field: ExpenseKey, raw: string) {
-    const resolved = resolveCell(raw)
-    if (resolved !== raw) setField(key, field, resolved)
+    const resolved = formulas.commit(`${key}:${field}`, raw)
+    if (resolved !== raw) showInField(key, field, resolved)
     save(key, { ...rowDraft(key), [field]: resolved })
   }
 
@@ -179,6 +195,8 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
           // Mirror the rows the bulk write actually touched (schedule start onward)
           if (isFutureExpectedMonth(year, month) && isScheduleActive(year, month)) {
             const scheduled = resolveExpectedForMonth(year, month, values)
+            // These cells were overwritten in bulk, so any formula behind them is gone
+            for (const field of ['cleaning', 'support', 'misc'] as const) formulas.forget(`${key}:${field}`)
             next[key] = {
               ...(next[key] ?? zeroDraft()),
               cleaning: String(scheduled.cleaning),
@@ -255,7 +273,11 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
               title={FORMULA_HINT}
               value={futureDraft[key]}
               onChange={e => setFutureField(key, e.target.value)}
-              onBlur={e => setFutureField(key, resolveCell(e.target.value))}
+              onFocus={() => {
+                const source = formulas.recall(`bulk:${key}`, futureDraft[key])
+                if (source) setFutureField(key, source)
+              }}
+              onBlur={e => setFutureField(key, formulas.commit(`bulk:${key}`, e.target.value))}
               onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
             />
           </label>
@@ -347,6 +369,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                                     title={FORMULA_HINT}
                                     value={draft[field]}
                                     onChange={e => setField(key, field, e.target.value)}
+                                    onFocus={() => focusField(key, field)}
                                     onBlur={e => commitField(key, field, e.target.value)}
                                     onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                                   />
