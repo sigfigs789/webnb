@@ -1,5 +1,6 @@
 import { useState, Fragment } from 'react'
 import { Booking } from '../../shared/types'
+import { cellNumber, isBrokenFormula, resolveCell, FORMULA_HINT } from '../../shared/formula'
 
 interface Props {
   bookings: Booking[]
@@ -72,7 +73,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
     const existing = bookings.find(b => b.id === editingId)
     onUpdate(editingId, {
       name: editValues.name.trim(),
-      revenue: Number(editValues.revenue),
+      revenue: cellNumber(editValues.revenue),
       passThroughTax: existing?.passThroughTax ?? 0,
       bookingDate: editValues.bookingDate,
       startDate: editValues.startDate,
@@ -181,11 +182,13 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                           <td>
                             {isEditing ? (
                               <input
-                                type="number"
+                                className={isBrokenFormula(editValues!.revenue) ? 'expense-input--invalid' : undefined}
+                                type="text"
+                                inputMode="decimal"
+                                title={FORMULA_HINT}
                                 value={editValues!.revenue}
                                 onChange={e => setField('revenue', e.target.value)}
-                                min="0"
-                                step="any"
+                                onBlur={e => setField('revenue', resolveCell(e.target.value))}
                                 onClick={e => e.stopPropagation()}
                               />
                             ) : (
@@ -236,7 +239,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                           </td>
                           <td>
                             {isEditing
-                              ? calcRevenuePerDay(Number(editValues!.revenue), editValues!.startDate, editValues!.endDate)
+                              ? calcRevenuePerDay(cellNumber(editValues!.revenue), editValues!.startDate, editValues!.endDate)
                               : calcRevenuePerDay(b.revenue, b.startDate, b.endDate)
                             }
                           </td>

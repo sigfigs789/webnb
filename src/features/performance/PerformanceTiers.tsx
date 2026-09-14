@@ -12,6 +12,7 @@ import { useActualTaxes } from './useActualTaxes'
 import { useOccupancy, OccupancyEntry } from '../occupancy/useOccupancy'
 
 import { getTax } from '../../shared/taxCalculation'
+import { cellNumber, isBrokenFormula, FORMULA_HINT } from '../../shared/formula'
 
 interface Props {
   bookings: Booking[]
@@ -270,7 +271,7 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
 
   function saveVariableExpense(month: MonthPerf, field: VariableExpenseKey, inputValue: string) {
     const original = roundToCents(expenseOriginalsRef.current[month.key]?.[field] ?? month[field])
-    const val = roundToCents(Math.max(0, Number(inputValue) || 0))
+    const val = roundToCents(Math.max(0, cellNumber(inputValue)))
     setExpenseDrafts(prev => {
       const next = { ...prev }
       const row = { ...(next[month.key] ?? {}) }
@@ -438,9 +439,10 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                           {VARIABLE_EXPENSE_FIELDS.map(({ key }) => (
                             <td key={key}>
                               <input
-                                className="expense-input"
+                                className={`expense-input${isBrokenFormula(expenseDrafts[d.key]?.[key] ?? '') ? ' expense-input--invalid' : ''}`}
                                 type="text"
                                 inputMode="decimal"
+                                title={FORMULA_HINT}
                                 value={expenseDrafts[d.key]?.[key] ?? amountAtRest(d[key])}
                                 onFocus={() => {
                                   expenseOriginalsRef.current[d.key] = {
@@ -463,9 +465,10 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                           ))}
                           <td>
                             <input
-                              className="expense-input"
+                              className={`expense-input${isBrokenFormula(taxDrafts[d.key] ?? '') ? ' expense-input--invalid' : ''}`}
                               type="text"
                               inputMode="decimal"
+                              title={FORMULA_HINT}
                               value={taxDrafts[d.key] ?? amountAtRest(d.taxes)}
                               onFocus={() => {
                                 taxOriginalsRef.current[d.key] = d.taxes
@@ -474,7 +477,7 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                               onChange={e => setTaxDrafts(prev => ({ ...prev, [d.key]: e.target.value }))}
                               onBlur={e => {
                                 const original = roundToCents(taxOriginalsRef.current[d.key] ?? d.taxes)
-                                const val = roundToCents(Math.max(0, Number(e.target.value) || 0))
+                                const val = roundToCents(Math.max(0, cellNumber(e.target.value)))
                                 setTaxDrafts(prev => { const next = { ...prev }; delete next[d.key]; return next })
                                 if (val !== original) {
                                   const ok = window.confirm(
