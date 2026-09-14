@@ -10,8 +10,8 @@ import { RevenuePerNightChart } from './features/revenue-per-night/RevenuePerNig
 import './App.css'
 
 const TABS = [
-  { path: '/bookings', label: 'Booking' },
   { path: '/performance', label: 'Performance' },
+  { path: '/bookings', label: 'Booking' },
   { path: '/expenses', label: 'Expected expenses' },
   { path: '/revenue-per-night', label: 'Revenue/night' },
   { path: '/occupancy', label: 'Occupancy' },
@@ -49,7 +49,7 @@ function App() {
           <div className="loading-state">Loading…</div>
         ) : (
         <Routes>
-          <Route path="/" element={<Navigate to="/bookings" replace />} />
+          <Route path="/" element={<Navigate to="/performance" replace />} />
 
           <Route path="/bookings" element={
             <>
