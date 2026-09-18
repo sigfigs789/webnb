@@ -1,0 +1,27 @@
+name: Empty Commit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 12 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  empty-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Push empty commit
+        run: |
+          git config user.name 'sigfigs789'
+          git config user.email '82550419+sigfigs789@users.noreply.github.com'
+          git commit --allow-empty -m 'Empty commit'
+          git push origin HEAD:main
