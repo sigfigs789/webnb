@@ -7,6 +7,8 @@ import { ExpenseForm } from './features/expenses/ExpenseForm'
 import { OccupancyTable } from './features/occupancy/OccupancyTable'
 import { PerformanceTiers } from './features/performance/PerformanceTiers'
 import { RevenuePerNightChart } from './features/revenue-per-night/RevenuePerNightChart'
+import { PasswordGate } from './features/auth/PasswordGate'
+import { useAuth } from './features/auth/useAuth'
 import './App.css'
 
 const TABS = [
@@ -20,6 +22,16 @@ const TABS = [
 const WIDE_ROUTES = new Set(TABS.map(tab => tab.path))
 
 function App() {
+  const { status, login, logout } = useAuth()
+
+  // Mount the dashboard only once unlocked, so none of the data hooks run
+  // behind the gate.
+  if (status === 'checking') return <div className="loading-state">Loading…</div>
+  if (status === 'locked') return <PasswordGate onSubmit={login} />
+  return <Dashboard onSignOut={logout} />
+}
+
+function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   const { bookings, loading: bookingsLoading, addBooking, updateBooking, deleteBooking } = useBookings()
   const { expenses, loading: expensesLoading, setExpense, updateFutureExpectedExpenses } = useExpenses()
   const isLoading = bookingsLoading || expensesLoading
@@ -30,6 +42,9 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>Rental Cashflow Tracker</h1>
+        <button type="button" className="btn-secondary btn-sign-out" onClick={onSignOut}>
+          Sign out
+        </button>
       </header>
 
       <nav className="tab-nav">
