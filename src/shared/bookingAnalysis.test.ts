@@ -104,6 +104,27 @@ describe('findGaps', () => {
     expect(gaps[0]).toMatchObject({ nightsInWindow: 324, maxStays: 11 })
   })
 
+  it('places the potential stays back to back from the start of the gap', () => {
+    const gaps = findGaps([range('2026-04-01', '2027-01-01')], window, 30)
+    expect(gaps[0].potentialStays).toEqual([
+      range('2026-01-01', '2026-01-31'),
+      range('2026-01-31', '2026-03-02'),
+      range('2026-03-02', '2026-04-01'),
+    ])
+  })
+
+  it('places potential stays after the turnover gap, one per counted stay', () => {
+    const gaps = findGaps([range('2026-01-01', '2026-02-01'), range('2026-05-01', '2027-01-01')], window, 30, 2)
+    // Feb 1 → May 1 is 89 nights: 2 + 30 + 2 + 30 + 2 fits two
+    expect(gaps[0].maxStays).toBe(2)
+    expect(gaps[0].potentialStays).toEqual([range('2026-02-03', '2026-03-05'), range('2026-03-07', '2026-04-06')])
+  })
+
+  it('places the stay that checks in before the window ends and runs past it', () => {
+    const gaps = findGaps([range('2026-01-01', '2026-12-20')], window, 30)
+    expect(gaps[0].potentialStays).toEqual([range('2026-12-20', '2027-01-19')])
+  })
+
   it('fits as many minimum-length stays as the gap allows', () => {
     const gaps = findGaps([range('2026-04-01', '2027-01-01')], window, 30)
     // Jan 1 → Apr 1 is 90 nights: three 30-night stays
