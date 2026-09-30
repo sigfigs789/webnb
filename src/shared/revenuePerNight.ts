@@ -10,6 +10,7 @@ export interface RevenuePerNightPoint {
   year: number
   /** 1-12 for monthly points, null for yearly points. */
   month: number | null
+  /** Revenue excluding pass-through tax. */
   revenue: number
   nights: number
   revenuePerNight: number
@@ -22,7 +23,8 @@ function perNight(total: number, nights: number): number {
 /**
  * Revenue per occupied night for every month that had at least one Airbnb night.
  * Booking revenue is spread across the nights it covers, so a stay that straddles
- * a month boundary contributes to both months.
+ * a month boundary contributes to both months. Pass-through tax is guest money
+ * remitted onward, not income, so it is left out.
  */
 export function monthlyRevenuePerNight(bookings: Booking[]): RevenuePerNightPoint[] {
   const nightsByKey = new Map(
@@ -44,9 +46,9 @@ export function monthlyRevenuePerNight(bookings: Booking[]): RevenuePerNightPoin
       label: `${MONTH_NAMES[entry.month - 1]} ${String(entry.year).slice(2)}`,
       year: entry.year,
       month: entry.month,
-      revenue: entry.revenue,
+      revenue: entry.netRevenue,
       nights,
-      revenuePerNight: perNight(entry.revenue, nights),
+      revenuePerNight: perNight(entry.netRevenue, nights),
     })
   }
 

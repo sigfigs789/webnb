@@ -28,8 +28,8 @@ describe('RevenuePerNightChart', () => {
     expect(html).toContain('2025')
     expect(html).toContain('Best <!-- -->month')
     expect(html).toContain('Weighted average')
-    expect(html).toContain('Jul 25 · $381.82')
-    expect(html).toContain('$344.44')
+    expect(html).toContain('Jul 25 · $336.00')
+    expect(html).toContain('$303.11')
   })
 
   it('shows the empty state with no bookings', () => {

@@ -199,7 +199,7 @@ export function RevenuePerNightChart({ bookings }: Props) {
 
           <p className="revenue-chart__legend">
             <span className="revenue-chart__legend-line" /> Weighted average{' '}
-            {formatCurrencyPrecise(totals.average)} / night across {totals.nights} nights
+            {formatCurrencyPrecise(totals.average)} / night across {totals.nights} nights · excludes pass-through tax
           </p>
 
           <div className="revenue-chart__stats">
