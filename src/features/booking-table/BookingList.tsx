@@ -1,5 +1,6 @@
 import { useState, Fragment } from 'react'
 import { Booking } from '../../shared/types'
+import { passThroughTaxOf, TAX_RATE } from '../../shared/taxCalculation'
 
 interface Props {
   bookings: Booking[]
@@ -37,6 +38,25 @@ function calcRevenuePerDay(revenue: number, start: string, end: string) {
   const nights = nightsBetween(start, end)
   if (nights === 0 || !Number.isFinite(revenue)) return '—'
   return formatCurrency(revenue / nights)
+}
+
+// Take-home per night: revenue without the pass-through tax, which is guest money remitted
+// onward rather than income. A "~" marks an estimated tax.
+function calcNetRevenuePerNight(revenue: number, passThroughTax: number, start: string, end: string) {
+  const nights = nightsBetween(start, end)
+  if (nights === 0 || !Number.isFinite(revenue)) return '—'
+  const tax = passThroughTaxOf({ revenue, passThroughTax })
+  const value = formatCurrency((revenue - tax.amount) / nights)
+  return tax.estimated ? (
+    <span
+      className="estimated-value"
+      title={`Pass-through tax estimated at ${formatCurrency(tax.amount)}: ${(TAX_RATE * 100).toFixed(3)}% Oahu tax inside the payout`}
+    >
+      ~{value}
+    </span>
+  ) : (
+    value
+  )
 }
 
 function formatCurrency(n: number) {
@@ -128,7 +148,8 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
               <th>Check-out</th>
               <th>Duration</th>
               <th>Booking Date</th>
-              <th>Gross Revenue/day</th>
+              <th>Revenue/night</th>
+              <th>Take-home/night</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -140,7 +161,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
               return (
                 <Fragment key={`year-${year}`}>
                   <tr className="year-header-row">
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <button
                         className="year-toggle"
                         onClick={() => toggleYear(year)}
@@ -155,7 +176,7 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                     <tr className="year-summary-row">
                       <td className="year-summary-label">{group.length} bookings hidden</td>
                       <td>{formatCurrency(yearRevenue)}</td>
-                      <td colSpan={6}>—</td>
+                      <td colSpan={7}>—</td>
                     </tr>
                   ) : (
                     group.map(b => {
@@ -238,6 +259,12 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
                             {isEditing
                               ? calcRevenuePerDay(Number(editValues!.revenue), editValues!.startDate, editValues!.endDate)
                               : calcRevenuePerDay(b.revenue, b.startDate, b.endDate)
+                            }
+                          </td>
+                          <td>
+                            {isEditing
+                              ? calcNetRevenuePerNight(Number(editValues!.revenue), b.passThroughTax, editValues!.startDate, editValues!.endDate)
+                              : calcNetRevenuePerNight(b.revenue, b.passThroughTax, b.startDate, b.endDate)
                             }
                           </td>
                           <td onClick={e => e.stopPropagation()}>

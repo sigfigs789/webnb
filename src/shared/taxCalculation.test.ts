@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getTax, TAX_RATE } from './taxCalculation'
+import { getTax, passThroughTaxOf, TAX_RATE } from './taxCalculation'
 
 describe('getTax', () => {
   it('returns computed rate when no actual tax exists for the key', () => {
@@ -24,5 +24,18 @@ describe('getTax', () => {
 
   it('returns personally-entered 0 rather than computing rate', () => {
     expect(getTax('2025-06', 1000, { '2025-06': 0 })).toBe(0)
+  })
+})
+
+describe('passThroughTaxOf', () => {
+  it('uses the pass-through tax entered on the booking', () => {
+    expect(passThroughTaxOf({ revenue: 5000, passThroughTax: 700 })).toEqual({ amount: 700, estimated: false })
+  })
+
+  it('estimates the tax share of the payout when none was entered', () => {
+    // $5,000 kept plus 17.962% tax on it is a $5,898.10 payout
+    const result = passThroughTaxOf({ revenue: 5000 * (1 + TAX_RATE), passThroughTax: 0 })
+    expect(result.estimated).toBe(true)
+    expect(result.amount).toBeCloseTo(5000 * TAX_RATE)
   })
 })

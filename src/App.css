@@ -38,6 +38,25 @@
   padding: 1rem;
 }
 
+.fixture-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: #fffaf0;
+  border-bottom: 1px solid #fbd38d;
+  color: #975a16;
+  font-size: 0.8rem;
+  padding: 0.4rem 1rem;
+}
+
+.fixture-banner button {
+  width: auto;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+}
+
 /* ── Tab nav ─────────────────────────────────────────── */
 .tab-nav {
   display: flex;
@@ -627,6 +646,11 @@ td.fixed-cost-uncounted {
 }
 
 /* ── Year summary row (shown when year is collapsed) ─── */
+.estimated-value {
+  color: #718096;
+  cursor: help;
+}
+
 tr.year-summary-row td {
   background: #f7fafc;
   color: #718096;

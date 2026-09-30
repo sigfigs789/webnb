@@ -116,6 +116,9 @@ describe('analyzeProposal', () => {
     expect(impact.before.totalPossibleStays).toBe(4)
     expect(impact.after.totalPossibleStays).toBe(3)
     expect(impact.possibleStaysDelta).toBe(-1)
+    // The booking itself counts for you; it rules out room for two others
+    expect(impact.staysAdded).toBe(1)
+    expect(impact.staysRuledOut).toBe(2)
     expect(impact.overlapsExisting).toBe(false)
   })
 
@@ -125,6 +128,8 @@ describe('analyzeProposal', () => {
     expect(impact.gapAfter).toBe(30)
     expect(impact.newlyStrandedNights).toBe(0)
     expect(impact.possibleStaysDelta).toBe(0)
+    expect(impact.staysAdded).toBe(1)
+    expect(impact.staysRuledOut).toBe(1)
   })
 
   it('treats blocked dates as unavailable', () => {
