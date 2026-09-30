@@ -4,9 +4,8 @@ import {
   compareRevenuePerNight,
   discountScenario,
   findGaps,
-  guestTotalFromPayout,
-  offerFromPayout,
-  passThroughFromPayout,
+  guestTotal,
+  passThroughForRevenue,
   pocketAfterTaxes,
   shiftYears,
   specialOfferFromTotal,
@@ -139,12 +138,18 @@ describe('analyzeProposal', () => {
 })
 
 describe('pocketAfterTaxes', () => {
-  it('taxes revenue net of pass-through tax', () => {
-    const result = pocketAfterTaxes(10000, 1000, 30)
+  it('adds the pass-through tax to the payout and taxes the real revenue', () => {
+    const result = pocketAfterTaxes(9000, 1000, 30)
+    expect(result.payout).toBeCloseTo(10000)
     expect(result.taxes).toBeCloseTo(9000 * TAX_RATE)
     expect(result.pocket).toBeCloseTo(10000 - 9000 * TAX_RATE)
-    // Nightly rate leaves the pass-through tax out
+    // Revenue carries no tax, so the nightly rate is just revenue / nights
     expect(result.revenuePerNight).toBeCloseTo(300)
+  })
+
+  it('keeps the whole revenue when the pass-through tax covers the taxes', () => {
+    const result = pocketAfterTaxes(9000, passThroughForRevenue(9000), 30)
+    expect(result.pocket).toBeCloseTo(9000)
   })
 })
 
@@ -157,16 +162,11 @@ describe('discountScenario', () => {
     // Loss divided by the discounted pocket per night: 3 nights at 30 nights × 10%
     expect(result.breakEvenNights).toBeCloseTo(30 / 9)
   })
-})
 
-describe('discountScenario with pass-through tax', () => {
-  // A $5,000 offer: payout is 5000 plus 5000 × 18% tax passed through
-  const revenue = 5000 + 900
-
-  it('takes the discount off the offer, fees and taxes alike', () => {
-    const result = discountScenario(revenue, 900, 30, 0.1, 0.13)
-    expect(result.baseOffer).toBeCloseTo(5000)
-    expect(result.discountedOffer).toBeCloseTo(4500)
+  it('takes the discount off the revenue, fees and taxes alike', () => {
+    // $5,000 revenue with 18% tax passed through on top
+    const result = discountScenario(5000, 900, 30, 0.1, 0.13)
+    expect(result.discounted.revenue).toBeCloseTo(4500)
     expect(result.discounted.passThroughTax).toBeCloseTo(810)
     // The guest paid 5000 + 650 fee + 900 tax = 6550 and saves 10% of it
     expect(result.baseGuestTotal).toBeCloseTo(6550)
@@ -174,22 +174,20 @@ describe('discountScenario with pass-through tax', () => {
   })
 })
 
-describe('offerFromPayout', () => {
-  it('recovers the offer and guest total from a payout', () => {
-    expect(offerFromPayout(5900, 900)).toBeCloseTo(5000)
-    expect(guestTotalFromPayout(5900, 900, 0.13)).toBeCloseTo(6550)
+describe('guestTotal', () => {
+  it('adds the guest fee and the pass-through tax to the revenue', () => {
+    expect(guestTotal(5000, 900, 0.13)).toBeCloseTo(6550)
   })
 })
 
-describe('passThroughFromPayout', () => {
-  it('finds the tax inside a payout', () => {
-    // $5,000 offer plus 900 tax
-    expect(passThroughFromPayout(5900, 0.18)).toBeCloseTo(900)
+describe('passThroughForRevenue', () => {
+  it('charges the tax on top of revenue', () => {
+    expect(passThroughForRevenue(5000, 0.18)).toBeCloseTo(900)
   })
 
   it('matches the taxes of a special offer', () => {
     const offer = specialOfferFromTotal(5700)
-    expect(passThroughFromPayout(offer.payout)).toBeCloseTo(offer.taxes)
+    expect(passThroughForRevenue(offer.offer)).toBeCloseTo(offer.taxes)
   })
 })
 
