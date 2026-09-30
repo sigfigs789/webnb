@@ -65,6 +65,14 @@ describe('compareRevenuePerNight', () => {
     expect(result.allTime?.nights).toBe(61)
   })
 
+  it('takes pass-through tax out of the history', () => {
+    const taxed = history.map(b => ({ ...b, revenue: b.revenue * 1.2, passThroughTax: b.revenue * 0.2 }))
+    const result = compareRevenuePerNight(taxed, { startDate: '2026-03-17', endDate: '2026-04-16', revenue: 7500 })
+    expect(result.sameDatesLastYear.revenuePerNight).toBeCloseTo(250)
+    expect(result.sameMonthsLastYear?.revenuePerNight).toBeCloseTo(250)
+    expect(result.allTime?.revenuePerNight).toBeCloseTo(15200 / 61)
+  })
+
   it('leaves the comparisons empty without history', () => {
     const result = compareRevenuePerNight([], { startDate: '2026-03-01', endDate: '2026-04-01', revenue: 6200 })
     expect(result.sameMonthsLastYear).toBeNull()
@@ -135,7 +143,8 @@ describe('pocketAfterTaxes', () => {
     const result = pocketAfterTaxes(10000, 1000, 30)
     expect(result.taxes).toBeCloseTo(9000 * TAX_RATE)
     expect(result.pocket).toBeCloseTo(10000 - 9000 * TAX_RATE)
-    expect(result.revenuePerNight).toBeCloseTo(333.33, 2)
+    // Nightly rate leaves the pass-through tax out
+    expect(result.revenuePerNight).toBeCloseTo(300)
   })
 })
 
@@ -151,11 +160,11 @@ describe('discountScenario', () => {
 })
 
 describe('discountScenario with pass-through tax', () => {
-  // A $5,000 offer: payout is 5000 × 0.97 + 5000 × 18% tax passed through
-  const revenue = 5000 * 0.97 + 900
+  // A $5,000 offer: payout is 5000 plus 5000 × 18% tax passed through
+  const revenue = 5000 + 900
 
   it('takes the discount off the offer, fees and taxes alike', () => {
-    const result = discountScenario(revenue, 900, 30, 0.1, 0.13, 0.03)
+    const result = discountScenario(revenue, 900, 30, 0.1, 0.13)
     expect(result.baseOffer).toBeCloseTo(5000)
     expect(result.discountedOffer).toBeCloseTo(4500)
     expect(result.discounted.passThroughTax).toBeCloseTo(810)
@@ -167,15 +176,15 @@ describe('discountScenario with pass-through tax', () => {
 
 describe('offerFromPayout', () => {
   it('recovers the offer and guest total from a payout', () => {
-    expect(offerFromPayout(5000 * 0.97 + 900, 900, 0.03)).toBeCloseTo(5000)
-    expect(guestTotalFromPayout(5000 * 0.97 + 900, 900, 0.13, 0.03)).toBeCloseTo(6550)
+    expect(offerFromPayout(5900, 900)).toBeCloseTo(5000)
+    expect(guestTotalFromPayout(5900, 900, 0.13)).toBeCloseTo(6550)
   })
 })
 
 describe('passThroughFromPayout', () => {
   it('finds the tax inside a payout', () => {
-    // $5,000 offer: 4850 after the host fee plus 900 tax
-    expect(passThroughFromPayout(5750, 0.18, 0.03)).toBeCloseTo(900)
+    // $5,000 offer plus 900 tax
+    expect(passThroughFromPayout(5900, 0.18)).toBeCloseTo(900)
   })
 
   it('matches the taxes of a special offer', () => {
@@ -186,11 +195,11 @@ describe('passThroughFromPayout', () => {
 
 describe('specialOfferFromTotal', () => {
   it('backs the fee and taxes out of the all-inclusive total', () => {
-    const offer = specialOfferFromTotal(5700, 0.13, 0.18, 0.03)
+    const offer = specialOfferFromTotal(5700, 0.13, 0.18)
     expect(offer.offer).toBeCloseTo(5700 / 1.31)
     expect(offer.offer + offer.serviceFee + offer.taxes).toBeCloseTo(5700)
     // Airbnb passes the taxes through, so they land in the payout (booking revenue)
-    expect(offer.payout).toBeCloseTo(offer.offer * 0.97 + offer.taxes)
+    expect(offer.payout).toBeCloseTo(offer.offer + offer.taxes)
   })
 
   it('defaults to the Oahu tax rate', () => {
