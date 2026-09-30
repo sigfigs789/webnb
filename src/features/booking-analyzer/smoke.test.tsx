@@ -30,6 +30,14 @@ describe('BookingAnalyzer', () => {
     expect(html).toContain('0 (back to back)')
   })
 
+  it('makes this booking and the potential stays draggable on the After bar only', () => {
+    const html = renderToString(<BookingAnalyzer bookings={[]} />)
+    const [before, after] = html.split('analyzer__timeline-label').slice(1)
+    expect(before).not.toContain('role="slider"')
+    expect(after).toContain('data-segment-key="proposal"')
+    expect(after.match(/role="slider"/g)?.length).toBeGreaterThan(1)
+  })
+
   it('labels the stays that could still be booked', () => {
     const html = renderToString(<BookingAnalyzer bookings={[]} />)
     expect(html).toContain('Potential bookable stays')

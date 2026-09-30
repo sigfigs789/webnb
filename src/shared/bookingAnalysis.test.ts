@@ -5,6 +5,8 @@ import {
   discountScenario,
   findGaps,
   fitStays,
+  fitsWithout,
+  calendarCapacity,
   guestTotal,
   listingPriceFor,
   passThroughForRevenue,
@@ -211,8 +213,54 @@ describe('analyzeProposal', () => {
     expect(withGap.possibleStaysDelta).toBe(0)
   })
 
+  it('counts a pinned stay as potential and packs the rest around it', () => {
+    // After Mar 1 → Apr 1, Apr 1 → May 1 fits one stay; pin one at Apr 1 instead
+    const pin = range('2026-04-01', '2026-05-01')
+    const impact = analyzeProposal(stays, [], range('2026-03-01', '2026-04-01'), window, 30, 0, [pin])
+    expect(impact.after.pinnedStays).toEqual([pin])
+    expect(impact.after.maxAdditionalStays).toBe(1)
+    expect(impact.possibleStaysDelta).toBe(0)
+    expect(impact.after.strandedNights).toBe(0)
+  })
+
+  it('strands nights when a pinned stay is placed badly', () => {
+    // Pinning Apr 10 → May 10 over-runs nothing but leaves Apr 1 → Apr 10 stranded
+    const pin = range('2026-04-10', '2026-05-01')
+    const impact = analyzeProposal(stays, [], range('2026-03-01', '2026-04-01'), window, 30, 0, [pin])
+    expect(impact.after.strandedNights).toBe(9)
+  })
+
   it('flags an overlap with an existing stay', () => {
     expect(analyzeProposal(stays, [], range('2026-02-15', '2026-03-20'), window, 30).overlapsExisting).toBe(true)
+  })
+})
+
+describe('calendarCapacity with pinned stays', () => {
+  const window = range('2026-01-01', '2027-01-01')
+
+  it('keeps pinned nights open and counts the pin as a potential stay', () => {
+    const plain = calendarCapacity([], [], window, 30)
+    const pinned = calendarCapacity([], [], window, 30, 0, [range('2026-06-01', '2026-07-01')])
+    expect(pinned.openNights).toBe(plain.openNights)
+    expect(pinned.maxAdditionalStays).toBe(1 + pinned.gaps.reduce((sum, gap) => sum + gap.maxStays, 0))
+  })
+
+  it('ignores pins outside the window', () => {
+    const pinned = calendarCapacity([], [], window, 30, 0, [range('2027-06-01', '2027-07-01')])
+    expect(pinned.pinnedStays).toEqual([])
+  })
+})
+
+describe('fitsWithout', () => {
+  const window = range('2026-01-01', '2027-01-01')
+
+  it('accepts a free spot inside the window', () => {
+    expect(fitsWithout(range('2026-02-01', '2026-03-03'), [range('2026-01-01', '2026-02-01')], window)).toBe(true)
+  })
+
+  it('rejects overlaps and spots outside the window', () => {
+    expect(fitsWithout(range('2026-01-20', '2026-02-20'), [range('2026-01-01', '2026-02-01')], window)).toBe(false)
+    expect(fitsWithout(range('2025-12-20', '2026-01-20'), [], window)).toBe(false)
   })
 })
 

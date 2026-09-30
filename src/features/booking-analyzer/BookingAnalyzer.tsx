@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Booking } from '../../shared/types'
 import { TAX_RATE } from '../../shared/taxCalculation'
 import {
@@ -10,6 +10,7 @@ import {
   compareRevenuePerNight,
   discountScenario,
   fitStays,
+  fitsWithout,
   fromDay,
   nightsOf,
   passThroughForRevenue,
@@ -101,12 +102,29 @@ function Delta({ proposed, reference }: { proposed: number; reference: number | 
 
 type DayKind = 'past' | 'booked' | 'blocked' | 'proposal' | 'potential' | 'stranded' | 'open'
 
+/** What a draggable block stands for: this booking, or one potential stay. */
+type DragSource =
+  | { type: 'proposal'; range: NightRange }
+  | { type: 'potential'; range: NightRange; pinIndex: number | null }
+
 interface Segment {
   kind: DayKind
   start: number
   nights: number
   /** For potential stays: which one (1-based), so back-to-back stays stay separate blocks. */
   stay?: number
+  pinned?: boolean
+  source?: DragSource
+}
+
+function segmentKey(segment: Segment) {
+  if (segment.source?.type === 'proposal') return 'proposal'
+  if (segment.source?.type === 'potential' && segment.source.pinIndex !== null) return `pin-${segment.source.pinIndex}`
+  return `${segment.kind}-${segment.start}`
+}
+
+function overlaps(a: NightRange, b: NightRange) {
+  return a.start < b.end && b.start < a.end
 }
 
 function timelineSegments(
@@ -115,30 +133,46 @@ function timelineSegments(
   stays: NightRange[],
   blocked: NightRange[],
   proposal: NightRange | null,
-  capacity: CalendarCapacity
+  capacity: CalendarCapacity,
+  pinned: NightRange[] = []
 ): Segment[] {
   const inside = (day: number, ranges: NightRange[]) => ranges.some(r => day >= r.start && day < r.end)
   const stranded = capacity.gaps.filter(gap => gap.stranded)
-  const potential = capacity.gaps.flatMap(gap => gap.potentialStays)
+  // Pinned stays and the ones still packed into the gaps, numbered in date order
+  const potential = [
+    ...pinned.map((range, pinIndex) => ({ range, pinIndex: pinIndex as number | null })),
+    ...capacity.gaps.flatMap(gap => gap.potentialStays.map(range => ({ range, pinIndex: null }))),
+  ].sort((a, b) => a.range.start - b.range.start)
   const segments: Segment[] = []
 
   for (let day = window.start; day < window.end; day++) {
     let kind: DayKind = 'open'
     let stay: number | undefined
-    const potentialIndex = potential.findIndex(r => day >= r.start && day < r.end)
-    if (proposal && day >= proposal.start && day < proposal.end) kind = 'proposal'
-    else if (inside(day, stays)) kind = 'booked'
+    let source: DragSource | undefined
+    const potentialIndex = potential.findIndex(p => day >= p.range.start && day < p.range.end)
+    if (proposal && day >= proposal.start && day < proposal.end) {
+      kind = 'proposal'
+      source = { type: 'proposal', range: proposal }
+    } else if (inside(day, stays)) kind = 'booked'
     else if (inside(day, blocked)) kind = 'blocked'
     else if (day < today) kind = 'past'
-    else if (inside(day, stranded)) kind = 'stranded'
     else if (potentialIndex >= 0) {
       kind = 'potential'
       stay = potentialIndex + 1
-    }
+      source = { type: 'potential', ...potential[potentialIndex] }
+    } else if (inside(day, stranded)) kind = 'stranded'
 
     const last = segments[segments.length - 1]
     if (last && last.kind === kind && last.stay === stay) last.nights++
-    else segments.push({ kind, start: day, nights: 1, stay })
+    else
+      segments.push({
+        kind,
+        start: day,
+        nights: 1,
+        stay,
+        pinned: source?.type === 'potential' && source.pinIndex !== null,
+        source,
+      })
   }
   return segments
 }
@@ -165,28 +199,91 @@ const KIND_LABELS: Record<DayKind, string> = {
   open: 'Open',
 }
 
-function Timeline({ label, segments, window }: { label: string; segments: Segment[]; window: NightRange }) {
+interface DragHandlers {
+  onPointerDown: (segment: Segment, event: React.PointerEvent<HTMLElement>) => void
+  onNudge: (segment: Segment, days: number) => void
+  /** The block being dragged or focused, whose dates are shown above the bar. */
+  activeKey: string | null
+  onActivate: (key: string | null) => void
+}
+
+function formatShortDate(day: number) {
+  const [year, month, date] = fromDay(day).split('-').map(Number)
+  return `${MONTH_NAMES[month - 1]} ${date}, ${year}`
+}
+
+function Timeline({
+  label,
+  segments,
+  window,
+  drag,
+}: {
+  label: string
+  segments: Segment[]
+  window: NightRange
+  /** Makes this booking and the potential stays draggable. */
+  drag?: DragHandlers
+}) {
   const total = nightsOf(window)
+  const active = drag?.activeKey ? segments.find(segment => segmentKey(segment) === drag.activeKey) : undefined
+  const activeRange = active?.source?.range
   return (
     <div className="analyzer__timeline">
       <span className="analyzer__timeline-label">{label}</span>
+      <div className="analyzer__timeline-track">
+      {activeRange && (
+        <span
+          className="analyzer__drag-dates"
+          style={{ left: `${(Math.max(0, activeRange.start - window.start) / total) * 100}%` }}
+          role="status"
+        >
+          {formatShortDate(activeRange.start)} → {formatShortDate(activeRange.end)} · {formatNights(nightsOf(activeRange))}
+        </span>
+      )}
       <div className="analyzer__timeline-bar">
-        {segments.map(segment => (
-          <span
-            key={`${segment.kind}-${segment.start}`}
-            className={`analyzer__segment analyzer__segment--${segment.kind}${
-              segment.stay !== undefined && segment.stay % 2 === 0 ? ' analyzer__segment--alt' : ''
-            }`}
-            style={{ width: `${(segment.nights / total) * 100}%` }}
-            title={`${KIND_LABELS[segment.kind]}${segment.stay !== undefined ? ` ${segment.stay}` : ''}: ${fromDay(
-              segment.start
-            )} · ${formatNights(segment.nights)}`}
-          >
-            {segment.stay !== undefined && segment.nights / total > 0.035 && (
-              <span className="analyzer__segment-label">{segment.stay}</span>
-            )}
-          </span>
-        ))}
+        {segments.map(segment => {
+          const draggable = Boolean(drag && segment.source)
+          const name = `${KIND_LABELS[segment.kind]}${segment.stay !== undefined ? ` ${segment.stay}` : ''}${
+            segment.pinned ? ' (placed)' : ''
+          }`
+          return (
+            <span
+              key={segmentKey(segment)}
+              data-segment-key={segmentKey(segment)}
+              className={`analyzer__segment analyzer__segment--${segment.kind}${
+                segment.stay !== undefined && segment.stay % 2 === 0 ? ' analyzer__segment--alt' : ''
+              }${segment.pinned ? ' analyzer__segment--pinned' : ''}${draggable ? ' analyzer__segment--draggable' : ''}`}
+              style={{ width: `${(segment.nights / total) * 100}%` }}
+              title={`${name}: ${fromDay(segment.start)} · ${formatNights(segment.nights)}${
+                draggable ? ' · drag, or use ← → to move' : ''
+              }`}
+              {...(draggable && drag
+                ? {
+                    role: 'slider',
+                    tabIndex: 0,
+                    'aria-label': `${name}, check-in ${fromDay(segment.source!.range.start)}`,
+                    'aria-valuemin': window.start,
+                    'aria-valuemax': window.end - 1,
+                    'aria-valuenow': segment.source!.range.start,
+                    'aria-valuetext': fromDay(segment.source!.range.start),
+                    onPointerDown: (event: React.PointerEvent<HTMLElement>) => drag.onPointerDown(segment, event),
+                    onFocus: () => drag.onActivate(segmentKey(segment)),
+                    onBlur: () => drag.onActivate(null),
+                    onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => {
+                      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+                      event.preventDefault()
+                      drag.onNudge(segment, (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 7 : 1))
+                    },
+                  }
+                : {})}
+            >
+              {segment.stay !== undefined && segment.nights / total > 0.035 && (
+                <span className="analyzer__segment-label">{segment.stay}</span>
+              )}
+            </span>
+          )
+        })}
+      </div>
       </div>
     </div>
   )
@@ -201,6 +298,9 @@ export function BookingAnalyzer({ bookings }: Props) {
   const [passThroughTax, setPassThroughTax] = useState('')
   const [minNights, setMinNights] = useState('30')
   const [gapNights, setGapNights] = useState('0')
+  // Potential stays dragged into place on the After bar
+  const [pinned, setPinned] = useState<NightRange[]>([])
+  const [activeBlock, setActiveBlock] = useState<string | null>(null)
   const [windowStartInput, setWindowStartInput] = useState('')
   const [windowEndInput, setWindowEndInput] = useState('')
   const [blocked, setBlocked] = useState<BlockedInput[]>([])
@@ -237,8 +337,14 @@ export function BookingAnalyzer({ bookings }: Props) {
   const span = hasWindow ? { start: toDay(windowStart), end: toDay(windowEnd) } : null
   // Empty nights expected between bookings; 0 means perfect back-to-back packing.
   const gapNightsValue = Math.max(0, Math.round(parseNumber(gapNights)))
+  // A pin that this booking, a stay or a block has since moved onto is dropped
+  const activePins = pinned.filter(
+    pin => !(proposal && overlaps(pin, proposal)) && ![...stays, ...blockedRanges].some(r => overlaps(pin, r))
+  )
   const analyze = (gap: number) =>
-    proposal && span ? analyzeProposal(stays, blockedRanges, proposal, span, minNightsValue, gap) : null
+    proposal && span
+      ? analyzeProposal(stays, blockedRanges, proposal, span, minNightsValue, gap, activePins)
+      : null
   const impact = analyze(gapNightsValue)
   const gapLadder = Array.from(new Set([...GAP_LADDER, gapNightsValue])).sort((a, b) => a - b)
 
@@ -284,6 +390,86 @@ export function BookingAnalyzer({ bookings }: Props) {
     comparison?.allTime?.revenuePerNight ??
     comparison?.proposedRevenuePerNight ??
     0
+
+  // ── Dragging blocks on the After bar ──
+  const focusAfterMove = useRef<string | null>(null)
+  useEffect(() => {
+    if (!focusAfterMove.current) return
+    document.querySelector<HTMLElement>(`[data-segment-key="${focusAfterMove.current}"]`)?.focus()
+    focusAfterMove.current = null
+  })
+
+  // Moves a block to `range` if the spot is free, and says where it ended up.
+  function place(source: DragSource, range: NightRange, pins: NightRange[]): { pins: NightRange[]; key: string } | null {
+    if (!span || !proposal) return null
+    if (source.type === 'proposal') {
+      if (!fitsWithout(range, [...stays, ...blockedRanges], span)) return null
+      setStartDate(fromDay(range.start))
+      setEndDate(fromDay(range.end))
+      return { pins: pins.filter(pin => !overlaps(pin, range)), key: 'proposal' }
+    }
+    const others = pins.filter((_, i) => i !== source.pinIndex)
+    if (!fitsWithout(range, [...stays, ...blockedRanges, proposal, ...others], span)) return null
+    const index = source.pinIndex ?? pins.length
+    const next = [...pins]
+    next[index] = range
+    return { pins: next, key: `pin-${index}` }
+  }
+
+  const shift = (range: NightRange, days: number) => ({ start: range.start + days, end: range.end + days })
+
+  const dragHandlers: DragHandlers = {
+    onPointerDown(segment, event) {
+      const source = segment.source
+      const bar = event.currentTarget.parentElement
+      if (!source || !bar || !span) return
+      event.preventDefault()
+      const dayWidth = bar.getBoundingClientRect().width / nightsOf(span)
+      const startX = event.clientX
+      // A potential stay becomes a pinned one the moment it is picked up
+      let current = source.type === 'potential' && source.pinIndex === null ? [...activePins, source.range] : activePins
+      const picked: DragSource =
+        source.type === 'potential' && source.pinIndex === null ? { ...source, pinIndex: current.length - 1 } : source
+      if (picked !== source) setPinned(current)
+      setActiveBlock(picked.type === 'proposal' ? 'proposal' : `pin-${picked.pinIndex}`)
+      document.body.classList.add('analyzer--dragging')
+
+      const move = (e: PointerEvent) => {
+        const days = Math.round((e.clientX - startX) / dayWidth)
+        // Dragged too far into a neighbour: settle as close as it fits
+        for (let d = days; ; d -= Math.sign(d)) {
+          const result = place(picked, shift(source.range, d), current)
+          if (result) {
+            current = result.pins
+            setPinned(result.pins)
+            return
+          }
+          if (d === 0) return
+        }
+      }
+      const stop = () => {
+        document.body.classList.remove('analyzer--dragging')
+        // Keep the dates up only while the block keeps focus
+        setActiveBlock(key => (document.activeElement?.getAttribute('data-segment-key') === key ? key : null))
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', stop)
+        window.removeEventListener('pointercancel', stop)
+      }
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', stop)
+      window.addEventListener('pointercancel', stop)
+    },
+    onNudge(segment, days) {
+      if (!segment.source) return
+      const result = place(segment.source, shift(segment.source.range, days), activePins)
+      if (!result) return
+      setPinned(result.pins)
+      focusAfterMove.current = result.key
+      setActiveBlock(result.key)
+    },
+    activeKey: activeBlock,
+    onActivate: setActiveBlock,
+  }
 
   const updateBlocked = (id: number, key: 'startDate' | 'endDate', value: string) =>
     setBlocked(prev => prev.map(b => (b.id === id ? { ...b, [key]: value } : b)))
@@ -539,7 +725,16 @@ export function BookingAnalyzer({ bookings }: Props) {
             <Timeline
               label="After"
               window={span}
-              segments={timelineSegments(span, toDay(today), stays, blockedRanges, proposal, impact.after)}
+              segments={timelineSegments(
+                span,
+                toDay(today),
+                stays,
+                blockedRanges,
+                proposal,
+                impact.after,
+                activePins
+              )}
+              drag={dragHandlers}
             />
             <div className="analyzer__ticks">
               {monthTicks(span).map(tick => (
@@ -556,6 +751,19 @@ export function BookingAnalyzer({ bookings }: Props) {
                 </span>
               ))}
             </div>
+            <p className="analyzer__hint analyzer__drag-hint">
+              Drag this booking or a potential stay along the After bar, one day at a time, to try other dates; or
+              click one and use ← → (Shift for a week). A potential stay you move stays where you put it, outlined,
+              and the rest re-pack around it.
+              {activePins.length > 0 && (
+                <>
+                  {' '}
+                  <button type="button" className="analyzer__field-link analyzer__reset-pins" onClick={() => setPinned([])}>
+                    Reset {activePins.length} placed {activePins.length === 1 ? 'stay' : 'stays'}
+                  </button>
+                </>
+              )}
+            </p>
 
             <div className="analyzer__table-wrap">
               <table className="analyzer__table">
