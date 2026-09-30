@@ -286,6 +286,18 @@ function Timeline({
           )
         })}
       </div>
+      {/* Month lines inside this bar, with a lighter one halfway through each month */}
+      <div className="analyzer__bar-grid" aria-hidden="true">
+        {monthTicks(window)
+          .filter(tick => tick.offset > 0)
+          .map(tick => (
+            <i
+              key={`${tick.label}-${tick.offset}`}
+              className={`analyzer__bar-line${tick.mid ? ' analyzer__bar-line--mid' : ''}`}
+              style={{ left: `${tick.offset}%` }}
+            />
+          ))}
+      </div>
       </div>
     </div>
   )
@@ -754,16 +766,6 @@ export function BookingAnalyzer({ bookings }: Props) {
                   </span>
                 )
               )}
-            </div>
-            {/* Month lines across both bars, with a lighter one halfway through each month */}
-            <div className="analyzer__grid" aria-hidden="true">
-              {monthTicks(span).map(tick => (
-                <i
-                  key={`${tick.label}-${tick.offset}`}
-                  className={`analyzer__grid-line${tick.mid ? ' analyzer__grid-line--mid' : ''}`}
-                  style={{ left: `${tick.offset}%` }}
-                />
-              ))}
             </div>
             </div>
             <div className="analyzer__legend">

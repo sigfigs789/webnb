@@ -1329,8 +1329,17 @@ body.analyzer--dragging * {
 
 .analyzer__ticks span {
   position: absolute;
-  top: 0.15rem;
-  padding-left: 3px;
+  top: 0.2rem;
+  padding-left: 4px;
+}
+
+.analyzer__ticks span::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -0.2rem;
+  height: 0.55rem;
+  border-left: 1px solid #e2e8f0;
 }
 
 /* A small notch on the axis halfway through each month */
@@ -1338,32 +1347,45 @@ body.analyzer--dragging * {
   position: absolute;
   top: 0;
   width: 1px;
-  height: 4px;
-  background: #cbd5e0;
+  height: 3px;
+  background: #e2e8f0;
 }
 
-.analyzer__grid {
+.analyzer__bar-grid {
   position: absolute;
-  top: 0;
-  bottom: 0.7rem;
-  left: 3.5rem;
-  right: 0;
+  inset: 0;
   z-index: 1;
+  border-radius: 4px;
+  overflow: hidden;
   pointer-events: none;
 }
 
-.analyzer__grid-line {
+/* Soft white cuts through the colour, so months read without boxing the bar in */
+.analyzer__bar-line {
   position: absolute;
-  top: -3px;
+  top: 0;
   bottom: 0;
-  width: 0;
-  border-left: 1px solid rgba(26, 32, 44, 0.35);
+  width: 1px;
+  background: rgba(255, 255, 255, 0.7);
+  mix-blend-mode: soft-light;
 }
 
-.analyzer__grid-line--mid {
-  top: 0;
-  bottom: 0.3rem;
-  border-left: 1px dashed rgba(26, 32, 44, 0.18);
+.analyzer__bar-line::after {
+  /* A second, fainter pass keeps the line visible on the pale open and past stretches */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(45, 55, 72, 0.12);
+}
+
+.analyzer__bar-line--mid {
+  top: 30%;
+  bottom: 30%;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.analyzer__bar-line--mid::after {
+  background: rgba(45, 55, 72, 0.08);
 }
 
 .analyzer__legend {

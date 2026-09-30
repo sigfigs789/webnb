@@ -38,11 +38,15 @@ describe('BookingAnalyzer', () => {
     expect(after.match(/role="slider"/g)?.length).toBeGreaterThan(1)
   })
 
-  it('draws month lines and halfway marks across the bars', () => {
+  it('draws month lines and halfway marks inside each bar', () => {
     const html = renderToString(<BookingAnalyzer bookings={[]} />)
-    // The default window is a full calendar year: 12 month starts, each with a 15th
-    expect(html.match(/analyzer__grid-line"/g)?.length).toBe(12)
-    expect(html.match(/analyzer__grid-line analyzer__grid-line--mid/g)?.length).toBe(12)
+    const [before, after] = html.split('analyzer__timeline-label').slice(1)
+    // The default window is a full calendar year: 11 month starts past its left edge, 12 halfway marks
+    for (const bar of [before, after]) {
+      expect(bar.match(/analyzer__bar-line"/g)?.length).toBe(11)
+      expect(bar.match(/analyzer__bar-line analyzer__bar-line--mid/g)?.length).toBe(12)
+    }
+    expect(html).not.toContain('analyzer__grid')
     expect(html).toContain('title="Jul 15"')
   })
 
