@@ -627,6 +627,11 @@ td.fixed-cost-uncounted {
 }
 
 /* ── Year summary row (shown when year is collapsed) ─── */
+.estimated-value {
+  color: #718096;
+  cursor: help;
+}
+
 tr.year-summary-row td {
   background: #f7fafc;
   color: #718096;

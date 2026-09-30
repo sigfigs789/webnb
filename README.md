@@ -6,7 +6,7 @@ The app is a Vite + React + TypeScript single-page app backed by Supabase. It tr
 
 ## Features
 
-- Booking CRUD with revenue, pass-through tax, booking date, check-in date, and check-out date.
+- Booking CRUD with revenue, pass-through tax, booking date, check-in date, and check-out date. The booking table also shows revenue per night excluding pass-through tax; when a booking has none entered, the tax is estimated as the 17.962% Oahu tax share of its revenue (`revenue × rate ÷ (1 + rate)`) and marked with `~`. This is display-only; stored bookings are not changed.
 - Occupancy table that combines Airbnb booking days with manually entered Kindred and owner-use days.
 - Expected expenses table with month-level cleaning, support, tax, and misc costs, plus a bulk update for future expected variable expenses.
 - Performance view with revenue distribution, taxes, variable expenses, fixed costs, principal gained, tier totals, notes, and default collapsed past years.
