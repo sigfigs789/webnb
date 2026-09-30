@@ -177,14 +177,16 @@ function timelineSegments(
   return segments
 }
 
+/** Where each month starts, and its 15th as the halfway mark, as % across the window. */
 function monthTicks(window: NightRange) {
-  const ticks: { label: string; offset: number }[] = []
+  const ticks: { label: string; offset: number; mid: boolean }[] = []
   const total = nightsOf(window)
   for (let day = window.start; day < window.end; day++) {
     const date = fromDay(day)
-    if (date.endsWith('-01')) {
-      ticks.push({ label: MONTH_NAMES[Number(date.slice(5, 7)) - 1], offset: ((day - window.start) / total) * 100 })
-    }
+    const offset = ((day - window.start) / total) * 100
+    const month = MONTH_NAMES[Number(date.slice(5, 7)) - 1]
+    if (date.endsWith('-01')) ticks.push({ label: month, offset, mid: false })
+    else if (date.endsWith('-15')) ticks.push({ label: `${month} 15`, offset, mid: true })
   }
   return ticks
 }
@@ -717,6 +719,7 @@ export function BookingAnalyzer({ bookings }: Props) {
               />
             </div>
 
+            <div className="analyzer__chart">
             <Timeline
               label="Before"
               window={span}
@@ -737,11 +740,31 @@ export function BookingAnalyzer({ bookings }: Props) {
               drag={dragHandlers}
             />
             <div className="analyzer__ticks">
+              {monthTicks(span).map(tick =>
+                tick.mid ? (
+                  <i
+                    key={`${tick.label}-${tick.offset}`}
+                    className="analyzer__tick-mid"
+                    style={{ left: `${tick.offset}%` }}
+                    title={tick.label}
+                  />
+                ) : (
+                  <span key={`${tick.label}-${tick.offset}`} style={{ left: `${tick.offset}%` }}>
+                    {tick.label}
+                  </span>
+                )
+              )}
+            </div>
+            {/* Month lines across both bars, with a lighter one halfway through each month */}
+            <div className="analyzer__grid" aria-hidden="true">
               {monthTicks(span).map(tick => (
-                <span key={`${tick.label}-${tick.offset}`} style={{ left: `${tick.offset}%` }}>
-                  {tick.label}
-                </span>
+                <i
+                  key={`${tick.label}-${tick.offset}`}
+                  className={`analyzer__grid-line${tick.mid ? ' analyzer__grid-line--mid' : ''}`}
+                  style={{ left: `${tick.offset}%` }}
+                />
               ))}
+            </div>
             </div>
             <div className="analyzer__legend">
               {(['booked', 'proposal', 'potential', 'blocked', 'stranded', 'open', 'past'] as DayKind[]).map(kind => (

@@ -1309,6 +1309,16 @@ body.analyzer--dragging * {
 }
 .analyzer__segment--past { background: #edf2f7; }
 
+/* Both bars, their axis and the month grid over them */
+.analyzer__chart {
+  position: relative;
+  margin-top: 0.875rem;
+}
+
+.analyzer__chart > .analyzer__timeline:first-child {
+  margin-top: 0;
+}
+
 .analyzer__ticks {
   position: relative;
   height: 1rem;
@@ -1320,6 +1330,40 @@ body.analyzer--dragging * {
 .analyzer__ticks span {
   position: absolute;
   top: 0.15rem;
+  padding-left: 3px;
+}
+
+/* A small notch on the axis halfway through each month */
+.analyzer__tick-mid {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 4px;
+  background: #cbd5e0;
+}
+
+.analyzer__grid {
+  position: absolute;
+  top: 0;
+  bottom: 0.7rem;
+  left: 3.5rem;
+  right: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.analyzer__grid-line {
+  position: absolute;
+  top: -3px;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid rgba(26, 32, 44, 0.35);
+}
+
+.analyzer__grid-line--mid {
+  top: 0;
+  bottom: 0.3rem;
+  border-left: 1px dashed rgba(26, 32, 44, 0.18);
 }
 
 .analyzer__legend {
