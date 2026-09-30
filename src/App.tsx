@@ -8,6 +8,8 @@ import { OccupancyTable } from './features/occupancy/OccupancyTable'
 import { PerformanceTiers } from './features/performance/PerformanceTiers'
 import { RevenuePerNightChart } from './features/revenue-per-night/RevenuePerNightChart'
 import { BookingAnalyzer } from './features/booking-analyzer/BookingAnalyzer'
+import { usingFixtures } from './lib/supabase'
+import { resetFixtures } from './lib/fixtureClient'
 import './App.css'
 
 const TABS = [
@@ -33,6 +35,22 @@ function App() {
       <header className="app-header">
         <h1>Rental Cashflow Tracker</h1>
       </header>
+
+      {usingFixtures && (
+        <div className="fixture-banner">
+          Fake booking data — changes stay in this browser only.
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              resetFixtures()
+              window.location.reload()
+            }}
+          >
+            Reset
+          </button>
+        </div>
+      )}
 
       <nav className="tab-nav">
         {TABS.map(tab => (

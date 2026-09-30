@@ -41,6 +41,12 @@ Start the dev server:
 npm run dev
 ```
 
+To play with the app without Supabase, run it on fake booking data instead. Ten made-up bookings from 2025–2027 are seeded from `src/lib/fixtures.ts`; edits are kept in the browser's localStorage, and the banner's Reset button restores the seed:
+
+```sh
+npm run dev:fixtures
+```
+
 ## Scripts
 
 - `npm run dev` starts Vite locally.

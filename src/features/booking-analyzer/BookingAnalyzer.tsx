@@ -379,7 +379,7 @@ export function BookingAnalyzer({ bookings }: Props) {
               </span>
               <span className="analyzer__tile-sub">
                 {comparison.sameMonthsLastYear
-                  ? `Weighted by ${formatNights(comparison.sameMonthsLastYear.coveredNights)} per month`
+                  ? `Each month weighted by its share of ${formatNights(comparison.sameMonthsLastYear.coveredNights)}`
                   : 'No stays in those months'}
               </span>
             </div>
