@@ -185,9 +185,12 @@ export interface CalendarCapacity {
   openNights: number
   bookableNights: number
   strandedNights: number
+  /** Potential stays: pinned ones plus those that still fit in the open gaps. */
   maxAdditionalStays: number
   totalPossibleStays: number
   gaps: Gap[]
+  /** Potential stays placed by hand; the gaps are found around them. */
+  pinnedStays: NightRange[]
 }
 
 function mergeRanges(ranges: NightRange[]): NightRange[] {
@@ -263,20 +266,28 @@ export function findGaps(occupied: NightRange[], window: NightRange, minNights: 
   return gaps
 }
 
+/**
+ * `pinned` are potential stays placed by hand. They are not booked, so they
+ * count as potential stays and their nights stay open, but the remaining
+ * potential stays are packed around them.
+ */
 export function calendarCapacity(
   stays: NightRange[],
   blocked: NightRange[],
   window: NightRange,
   minNights: number,
-  gapNights = 0
+  gapNights = 0,
+  pinned: NightRange[] = []
 ): CalendarCapacity {
-  const gaps = findGaps([...stays, ...blocked], window, minNights, gapNights)
+  const pinnedInWindow = pinned.filter(pin => overlap(pin, window) > 0)
+  const gaps = findGaps([...stays, ...blocked, ...pinnedInWindow], window, minNights, gapNights)
   const inWindow = stays.filter(stay => overlap(stay, window) > 0)
   const bookedStays = inWindow.length
   const bookedNights = inWindow.reduce((sum, stay) => sum + overlap(stay, window), 0)
-  const openNights = gaps.reduce((sum, gap) => sum + gap.nightsInWindow, 0)
+  const pinnedNights = pinnedInWindow.reduce((sum, pin) => sum + overlap(pin, window), 0)
+  const openNights = gaps.reduce((sum, gap) => sum + gap.nightsInWindow, 0) + pinnedNights
   const strandedNights = gaps.filter(gap => gap.stranded).reduce((sum, gap) => sum + gap.nightsInWindow, 0)
-  const maxAdditionalStays = gaps.reduce((sum, gap) => sum + gap.maxStays, 0)
+  const maxAdditionalStays = pinnedInWindow.length + gaps.reduce((sum, gap) => sum + gap.maxStays, 0)
   return {
     bookedStays,
     bookedNights,
@@ -286,7 +297,18 @@ export function calendarCapacity(
     maxAdditionalStays,
     totalPossibleStays: bookedStays + maxAdditionalStays,
     gaps,
+    pinnedStays: pinnedInWindow,
   }
+}
+
+/** Whether a range sits inside the window without overlapping any of `occupied`. */
+export function fitsWithout(range: NightRange, occupied: NightRange[], window: NightRange): boolean {
+  return (
+    range.start >= window.start &&
+    range.start < window.end &&
+    range.end > range.start &&
+    occupied.every(other => overlap(range, other) === 0)
+  )
 }
 
 export interface ProposalImpact {
@@ -313,11 +335,13 @@ export function analyzeProposal(
   proposal: NightRange,
   window: NightRange,
   minNights: number,
-  gapNights = 0
+  gapNights = 0,
+  /** Potential stays placed by hand around this booking (After only). */
+  pinned: NightRange[] = []
 ): ProposalImpact {
   const occupied = mergeRanges([...stays, ...blocked])
   const before = calendarCapacity(stays, blocked, window, minNights, gapNights)
-  const after = calendarCapacity([...stays, proposal], blocked, window, minNights, gapNights)
+  const after = calendarCapacity([...stays, proposal], blocked, window, minNights, gapNights, pinned)
 
   const previous = occupied.filter(r => r.end <= proposal.start).pop()
   const next = occupied.find(r => r.start >= proposal.end)
