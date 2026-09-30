@@ -544,7 +544,41 @@ export function BookingAnalyzer({ bookings }: Props) {
               </table>
             </div>
 
+            <div className="analyzer__table-wrap">
+              <table className="analyzer__table analyzer__table--breakdown">
+                <tbody>
+                  <tr>
+                    <td>This booking</td>
+                    <td className={impact.staysAdded > 0 ? 'analyzer__delta analyzer__delta--up' : undefined}>
+                      {impact.staysAdded > 0 ? `+${impact.staysAdded}` : '—'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Future {minNightsValue}+ night stays ruled out</td>
+                    <td className={impact.staysRuledOut > 0 ? 'analyzer__delta analyzer__delta--down' : undefined}>
+                      {impact.staysRuledOut > 0 ? `−${impact.staysRuledOut}` : '—'}
+                    </td>
+                  </tr>
+                  <tr className="analyzer__row--total">
+                    <td>Net change in possible stays</td>
+                    <td
+                      className={
+                        impact.possibleStaysDelta === 0
+                          ? undefined
+                          : `analyzer__delta analyzer__delta--${impact.possibleStaysDelta > 0 ? 'up' : 'down'}`
+                      }
+                    >
+                      {impact.possibleStaysDelta === 0
+                        ? '0'
+                        : `${impact.possibleStaysDelta > 0 ? '+' : '−'}${Math.abs(impact.possibleStaysDelta)}`}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
             <ImpactVerdict
+              staysRuledOut={impact.staysRuledOut}
               gapBefore={impact.gapBefore}
               gapAfter={impact.gapAfter}
               minNights={minNightsValue}
@@ -821,6 +855,7 @@ function CapacityRow({
 }
 
 function ImpactVerdict({
+  staysRuledOut,
   gapBefore,
   gapAfter,
   minNights,
@@ -828,6 +863,7 @@ function ImpactVerdict({
   newlyStrandedNights,
   referenceRate,
 }: {
+  staysRuledOut: number
   gapBefore: number | null
   gapAfter: number | null
   minNights: number
@@ -854,8 +890,9 @@ function ImpactVerdict({
     <p className="analyzer__alert analyzer__alert--bad">
       {possibleStaysDelta < 0 && (
         <>
-          Accepting this costs {Math.abs(possibleStaysDelta)} potential{' '}
-          {Math.abs(possibleStaysDelta) === 1 ? 'stay' : 'stays'} in the window.{' '}
+          This booking rules out room for {staysRuledOut} future {staysRuledOut === 1 ? 'stay' : 'stays'}, so
+          the window holds {Math.abs(possibleStaysDelta)} fewer {Math.abs(possibleStaysDelta) === 1 ? 'stay' : 'stays'}{' '}
+          overall.{' '}
         </>
       )}
       {newlyStrandedNights > 0 && (

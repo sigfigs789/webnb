@@ -254,7 +254,11 @@ export interface ProposalImpact {
   /** Open nights left between check-out and the next stay/block (null when nothing follows it). */
   gapAfter: number | null
   overlapsExisting: boolean
-  /** Change in the maximum number of stays the window can hold. */
+  /** Stays this booking adds to the window: 1, or 0 when it falls outside it. */
+  staysAdded: number
+  /** Future minimum-length stays that no longer fit once this booking is taken. */
+  staysRuledOut: number
+  /** Change in the maximum number of stays the window can hold: added − ruled out. */
   possibleStaysDelta: number
   /** Nights that become stranded because of this booking. */
   newlyStrandedNights: number
@@ -280,6 +284,8 @@ export function analyzeProposal(
     gapBefore: previous ? proposal.start - previous.end : null,
     gapAfter: next ? next.start - proposal.end : null,
     overlapsExisting: occupied.some(r => overlap(r, proposal) > 0),
+    staysAdded: after.bookedStays - before.bookedStays,
+    staysRuledOut: before.maxAdditionalStays - after.maxAdditionalStays,
     possibleStaysDelta: after.totalPossibleStays - before.totalPossibleStays,
     newlyStrandedNights: after.strandedNights - before.strandedNights,
   }
