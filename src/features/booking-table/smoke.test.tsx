@@ -18,11 +18,12 @@ function booking(id: string, revenue: number, passThroughTax: number): Booking {
 }
 
 describe('BookingList', () => {
-  it('shows revenue per night without the pass-through tax', () => {
+  it('shows take-home per night without the pass-through tax', () => {
     const html = renderToString(
       <BookingList bookings={[booking('a', 3000, 500), booking('b', 1179.62, 0)]} onUpdate={() => {}} onDelete={() => {}} />
     )
-    expect(html).toContain('Revenue/night excl. tax')
+    expect(html).toContain('<th>Revenue/night</th>')
+    expect(html).toContain('<th>Take-home/night</th>')
     // Entered tax: (3000 − 500) / 10 nights
     expect(html).toContain('$250.00')
     // Estimated tax: $1,179.62 is $1,000 kept plus 17.962% tax, so $100 a night

@@ -40,7 +40,7 @@ function calcRevenuePerDay(revenue: number, start: string, end: string) {
   return formatCurrency(revenue / nights)
 }
 
-// Revenue per night without the pass-through tax, which is guest money remitted
+// Take-home per night: revenue without the pass-through tax, which is guest money remitted
 // onward rather than income. A "~" marks an estimated tax.
 function calcNetRevenuePerNight(revenue: number, passThroughTax: number, start: string, end: string) {
   const nights = nightsBetween(start, end)
@@ -148,8 +148,8 @@ export function BookingList({ bookings, onUpdate, onDelete }: Props) {
               <th>Check-out</th>
               <th>Duration</th>
               <th>Booking Date</th>
-              <th>Gross Revenue/day</th>
-              <th>Revenue/night excl. tax</th>
+              <th>Revenue/night</th>
+              <th>Take-home/night</th>
               <th>Actions</th>
             </tr>
           </thead>
