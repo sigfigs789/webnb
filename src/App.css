@@ -1396,6 +1396,13 @@ td.note-cell {
   text-decoration: underline;
 }
 
+.analyzer__subhead {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4a5568;
+  margin-top: 1.25rem;
+}
+
 .analyzer__offer-compare {
   font-size: 0.78rem;
   color: #4a5568;

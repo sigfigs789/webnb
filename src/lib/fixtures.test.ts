@@ -90,4 +90,18 @@ describe("fixture data against the analyzer's default stay", () => {
     expect(impact.staysRuledOut).toBe(2)
     expect(impact.possibleStaysDelta).toBe(-1)
   })
+
+  it('stops costing a stay once bookings are spaced 5 nights apart', () => {
+    const impact = analyzeProposal(
+      bookings.map(bookingRange),
+      [],
+      { start: toDay(proposal.startDate), end: toDay(proposal.endDate) },
+      { start: toDay('2027-01-01'), end: toDay('2028-01-01') },
+      30,
+      5
+    )
+    // Jun 10 → Aug 20 only fits one spaced-out stay, and this booking is it
+    expect(impact.staysRuledOut).toBe(1)
+    expect(impact.possibleStaysDelta).toBe(0)
+  })
 })

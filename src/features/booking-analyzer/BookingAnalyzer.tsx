@@ -9,6 +9,7 @@ import {
   bookingRange,
   compareRevenuePerNight,
   discountScenario,
+  fitStays,
   fromDay,
   nightsOf,
   passThroughForRevenue,
@@ -30,6 +31,7 @@ interface BlockedInput {
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const DISCOUNT_LADDER = [0.05, 0.1, 0.15, 0.2]
+const GAP_LADDER = [0, 1, 2, 3]
 
 function formatCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -180,6 +182,7 @@ export function BookingAnalyzer({ bookings }: Props) {
   const [revenue, setRevenue] = useState(DEFAULT_TAKE_HOME)
   const [passThroughTax, setPassThroughTax] = useState('')
   const [minNights, setMinNights] = useState('30')
+  const [gapNights, setGapNights] = useState('0')
   const [windowStartInput, setWindowStartInput] = useState('')
   const [windowEndInput, setWindowEndInput] = useState('')
   const [blocked, setBlocked] = useState<BlockedInput[]>([])
@@ -214,7 +217,12 @@ export function BookingAnalyzer({ bookings }: Props) {
   )
 
   const span = hasWindow ? { start: toDay(windowStart), end: toDay(windowEnd) } : null
-  const impact = proposal && span ? analyzeProposal(stays, blockedRanges, proposal, span, minNightsValue) : null
+  // Empty nights expected between bookings; 0 means perfect back-to-back packing.
+  const gapNightsValue = Math.max(0, Math.round(parseNumber(gapNights)))
+  const analyze = (gap: number) =>
+    proposal && span ? analyzeProposal(stays, blockedRanges, proposal, span, minNightsValue, gap) : null
+  const impact = analyze(gapNightsValue)
+  const gapLadder = Array.from(new Set([...GAP_LADDER, gapNightsValue])).sort((a, b) => a - b)
 
   const discountRate = Math.min(Math.max(parseNumber(discountPct), 0), 100) / 100
   const hostFeeRate = parseNumber(hostFeePct) / 100
@@ -427,7 +435,23 @@ export function BookingAnalyzer({ bookings }: Props) {
             <input id="an-wend" type="date" value={windowEnd} onChange={e => setWindowEndInput(e.target.value)} />
             {!hasWindow && <span className="form-error">Must be after the window start</span>}
           </div>
+          <div className="form-field">
+            <label htmlFor="an-gap">Gap between bookings (nights)</label>
+            <input
+              id="an-gap"
+              type="number"
+              min="0"
+              step="1"
+              value={gapNights}
+              onChange={e => setGapNights(e.target.value)}
+            />
+          </div>
         </div>
+        <p className="analyzer__hint">
+          Gap between bookings is how many empty nights you expect around each future stay: 0 is perfect
+          back-to-back bookings. A future stay then needs that many free nights next to any booking and between
+          each other, so an open stretch fits a {minNightsValue}-night stay only with room to spare.
+        </p>
 
         <div className="analyzer__blocked">
           <span className="analyzer__blocked-title">Other blocked dates (owner use, maintenance…)</span>
@@ -475,8 +499,18 @@ export function BookingAnalyzer({ bookings }: Props) {
             )}
 
             <div className="analyzer__gaps">
-              <GapCallout label="Gap before check-in" nights={impact.gapBefore} minNights={minNightsValue} />
-              <GapCallout label="Gap after check-out" nights={impact.gapAfter} minNights={minNightsValue} />
+              <GapCallout
+                label="Gap before check-in"
+                nights={impact.gapBefore}
+                minNights={minNightsValue}
+                gapNights={gapNightsValue}
+              />
+              <GapCallout
+                label="Gap after check-out"
+                nights={impact.gapAfter}
+                minNights={minNightsValue}
+                gapNights={gapNightsValue}
+              />
             </div>
 
             <Timeline
@@ -577,7 +611,50 @@ export function BookingAnalyzer({ bookings }: Props) {
               </table>
             </div>
 
+            <h4 className="analyzer__subhead">Gap between bookings: back to back vs spaced out</h4>
+            <div className="analyzer__table-wrap">
+              <table className="analyzer__table">
+                <thead>
+                  <tr>
+                    <th>Gap nights</th>
+                    <th>Potential bookable stays</th>
+                    <th>Total possible stays</th>
+                    <th>Change from this booking</th>
+                    <th>Stranded nights after</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gapLadder.map(gap => {
+                    const row = analyze(gap)!
+                    return (
+                      <tr key={gap} className={gap === gapNightsValue ? 'analyzer__row--active' : undefined}>
+                        <td>{gap === 0 ? '0 (back to back)' : gap}</td>
+                        <td>
+                          {row.before.maxAdditionalStays} → {row.after.maxAdditionalStays}
+                        </td>
+                        <td>
+                          {row.before.totalPossibleStays} → {row.after.totalPossibleStays}
+                        </td>
+                        <td
+                          className={
+                            row.possibleStaysDelta === 0
+                              ? undefined
+                              : `analyzer__delta analyzer__delta--${row.possibleStaysDelta > 0 ? 'up' : 'down'}`
+                          }
+                        >
+                          {row.possibleStaysDelta > 0 ? '+' : row.possibleStaysDelta < 0 ? '−' : ''}
+                          {Math.abs(row.possibleStaysDelta)}
+                        </td>
+                        <td>{row.after.strandedNights}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
             <ImpactVerdict
+              gapNights={gapNightsValue}
               staysRuledOut={impact.staysRuledOut}
               gapBefore={impact.gapBefore}
               gapAfter={impact.gapAfter}
@@ -809,15 +886,27 @@ export function BookingAnalyzer({ bookings }: Props) {
   )
 }
 
-function GapCallout({ label, nights, minNights }: { label: string; nights: number | null; minNights: number }) {
+function GapCallout({
+  label,
+  nights,
+  minNights,
+  gapNights,
+}: {
+  label: string
+  nights: number | null
+  minNights: number
+  gapNights: number
+}) {
   let tone = 'ok'
   let detail = 'Nothing booked on that side'
   if (nights !== null) {
+    const fit = fitStays(nights, minNights, gapNights)
+    const withGap = gapNights > 0 ? ` with ${formatNights(gapNights)} between bookings` : ''
     if (nights === 0) detail = 'Flush against the neighbouring stay'
-    else if (nights < minNights) {
+    else if (fit === 0) {
       tone = 'bad'
-      detail = `Stranded: too short for a ${minNights}-night stay`
-    } else detail = `Still fits ${Math.floor(nights / minNights)} × ${minNights}-night stay`
+      detail = `Stranded: too short for a ${minNights}-night stay${withGap}`
+    } else detail = `Still fits ${fit} × ${minNights}-night stay${withGap}`
   }
   return (
     <div className={`analyzer__gap analyzer__gap--${tone}`}>
@@ -855,6 +944,7 @@ function CapacityRow({
 }
 
 function ImpactVerdict({
+  gapNights,
   staysRuledOut,
   gapBefore,
   gapAfter,
@@ -863,6 +953,7 @@ function ImpactVerdict({
   newlyStrandedNights,
   referenceRate,
 }: {
+  gapNights: number
   staysRuledOut: number
   gapBefore: number | null
   gapAfter: number | null
@@ -880,7 +971,8 @@ function ImpactVerdict({
   }
 
   const strandedValue = Math.max(0, newlyStrandedNights) * referenceRate
-  const isStranded = (gap: number | null): gap is number => gap !== null && gap > 0 && gap < minNights
+  const isStranded = (gap: number | null): gap is number =>
+    gap !== null && gap > 0 && fitStays(gap, minNights, gapNights) === 0
   const tips = [
     isStranded(gapBefore) && `moving check-in ${formatNights(gapBefore)} earlier`,
     isStranded(gapAfter) && `moving check-out ${formatNights(gapAfter)} later`,

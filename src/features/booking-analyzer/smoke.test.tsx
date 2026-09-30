@@ -24,6 +24,12 @@ describe('BookingAnalyzer', () => {
     expect(html).toContain('$202.94')
   })
 
+  it('compares back-to-back bookings with gaps between them', () => {
+    const html = renderToString(<BookingAnalyzer bookings={[]} />)
+    expect(html).toContain('Gap between bookings (nights)')
+    expect(html).toContain('0 (back to back)')
+  })
+
   it('labels the stays that could still be booked', () => {
     const html = renderToString(<BookingAnalyzer bookings={[]} />)
     expect(html).toContain('Potential bookable stays')

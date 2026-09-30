@@ -164,7 +164,7 @@ export interface Gap extends NightRange {
   nights: number
   /** Nights of the gap that fall inside the analysis window. */
   nightsInWindow: number
-  /** Too short to ever hold a minimum-length stay. */
+  /** Too short to ever hold a minimum-length stay (after any turnover gap). */
   stranded: boolean
   /** How many minimum-length stays can start in the window and still fit. */
   maxStays: number
@@ -194,28 +194,58 @@ function mergeRanges(ranges: NightRange[]): NightRange[] {
 }
 
 /**
+ * How many minimum-length stays fit in an open gap when every stay needs
+ * `gapNights` empty nights between it and its neighbours. A side that butts
+ * against an existing stay or block (`leftBounded` / `rightBounded`) needs that
+ * turnover too; stays placed next to each other need it between them. So k
+ * stays fit when gapNights × (bounded sides) + k × minNights + (k − 1) ×
+ * gapNights ≤ nights.
+ */
+export function fitStays(
+  nights: number,
+  minNights: number,
+  gapNights = 0,
+  leftBounded = true,
+  rightBounded = true
+): number {
+  if (nights === Infinity) return Infinity
+  const usable = nights - gapNights * (Number(leftBounded) + Number(rightBounded))
+  if (usable < minNights) return 0
+  return Math.floor((usable + gapNights) / (minNights + gapNights))
+}
+
+/**
  * Open gaps between occupied ranges from the window start onward. Nights before
  * the window start are treated as unbookable (e.g. already in the past), so a
  * gap is measured from there; a gap running past the window end keeps its full
- * length so it is not mistaken for a stranded one.
+ * length so it is not mistaken for a stranded one. `gapNights` is the
+ * turnover each future stay needs from its neighbours (see fitStays).
  */
-export function findGaps(occupied: NightRange[], window: NightRange, minNights: number): Gap[] {
+export function findGaps(occupied: NightRange[], window: NightRange, minNights: number, gapNights = 0): Gap[] {
   const gaps: Gap[] = []
   let cursor = window.start
+  // A gap opening at the window start has nothing booked right before it
+  let leftBounded = false
 
   const push = (start: number, end: number) => {
     if (start >= window.end || end <= start) return
     const nights = end - start
     const nightsInWindow = Math.min(end, window.end) - start
-    const stranded = nights < minNights
-    const maxStays = stranded ? 0 : Math.min(Math.ceil(nightsInWindow / minNights), Math.floor(nights / minNights))
+    const rightBounded = end !== Infinity
+    const fit = fitStays(nights, minNights, gapNights, leftBounded, rightBounded)
+    const stranded = fit === 0
+    // Stays go in back to back from the first night the turnover allows
+    const firstStart = start + (leftBounded ? gapNights : 0)
+    const startsInWindow = firstStart < window.end ? Math.ceil((window.end - firstStart) / (minNights + gapNights)) : 0
+    const maxStays = stranded ? 0 : Math.min(startsInWindow, fit)
     gaps.push({ start, end, nights, nightsInWindow, stranded, maxStays })
   }
 
   for (const range of mergeRanges(occupied)) {
-    if (range.end <= cursor) continue
+    if (range.end < cursor) continue
     if (range.start > cursor) push(cursor, range.start)
     cursor = Math.max(cursor, range.end)
+    leftBounded = true
   }
   push(cursor, Infinity)
   return gaps
@@ -225,9 +255,10 @@ export function calendarCapacity(
   stays: NightRange[],
   blocked: NightRange[],
   window: NightRange,
-  minNights: number
+  minNights: number,
+  gapNights = 0
 ): CalendarCapacity {
-  const gaps = findGaps([...stays, ...blocked], window, minNights)
+  const gaps = findGaps([...stays, ...blocked], window, minNights, gapNights)
   const inWindow = stays.filter(stay => overlap(stay, window) > 0)
   const bookedStays = inWindow.length
   const bookedNights = inWindow.reduce((sum, stay) => sum + overlap(stay, window), 0)
@@ -269,11 +300,12 @@ export function analyzeProposal(
   blocked: NightRange[],
   proposal: NightRange,
   window: NightRange,
-  minNights: number
+  minNights: number,
+  gapNights = 0
 ): ProposalImpact {
   const occupied = mergeRanges([...stays, ...blocked])
-  const before = calendarCapacity(stays, blocked, window, minNights)
-  const after = calendarCapacity([...stays, proposal], blocked, window, minNights)
+  const before = calendarCapacity(stays, blocked, window, minNights, gapNights)
+  const after = calendarCapacity([...stays, proposal], blocked, window, minNights, gapNights)
 
   const previous = occupied.filter(r => r.end <= proposal.start).pop()
   const next = occupied.find(r => r.start >= proposal.end)
