@@ -7,6 +7,7 @@ import { ExpenseForm } from './features/expenses/ExpenseForm'
 import { OccupancyTable } from './features/occupancy/OccupancyTable'
 import { PerformanceTiers } from './features/performance/PerformanceTiers'
 import { RevenuePerNightChart } from './features/revenue-per-night/RevenuePerNightChart'
+import { BookingAnalyzer } from './features/booking-analyzer/BookingAnalyzer'
 import './App.css'
 
 const TABS = [
@@ -15,6 +16,7 @@ const TABS = [
   { path: '/expenses', label: 'Expected expenses' },
   { path: '/revenue-per-night', label: 'Revenue/night' },
   { path: '/occupancy', label: 'Occupancy' },
+  { path: '/analyze', label: 'Analyze booking' },
 ]
 
 const WIDE_ROUTES = new Set(TABS.map(tab => tab.path))
@@ -81,6 +83,12 @@ function App() {
           <Route path="/revenue-per-night" element={
             <section className="card">
               <RevenuePerNightChart bookings={bookings} />
+            </section>
+          } />
+
+          <Route path="/analyze" element={
+            <section className="card">
+              <BookingAnalyzer bookings={bookings} />
             </section>
           } />
 
