@@ -4,6 +4,8 @@ import {
   compareRevenuePerNight,
   discountScenario,
   findGaps,
+  guestTotalFromPayout,
+  offerFromPayout,
   pocketAfterTaxes,
   shiftYears,
   specialOfferFromTotal,
@@ -139,11 +141,33 @@ describe('pocketAfterTaxes', () => {
 describe('discountScenario', () => {
   it('reports the discount as money out of pocket after taxes', () => {
     const result = discountScenario(10000, 0, 30, 0.1)
-    expect(result.guestSavings).toBeCloseTo(1000)
+    expect(result.discounted.revenue).toBeCloseTo(9000)
     expect(result.pocketLoss).toBeCloseTo(1000 * (1 - TAX_RATE))
     expect(result.discounted.revenuePerNight).toBeCloseTo(300)
     // Loss divided by the discounted pocket per night: 3 nights at 30 nights × 10%
     expect(result.breakEvenNights).toBeCloseTo(30 / 9)
+  })
+})
+
+describe('discountScenario with pass-through tax', () => {
+  // A $5,000 offer: payout is 5000 × 0.97 + 5000 × 18% tax passed through
+  const revenue = 5000 * 0.97 + 900
+
+  it('takes the discount off the offer, fees and taxes alike', () => {
+    const result = discountScenario(revenue, 900, 30, 0.1, 0.13, 0.03)
+    expect(result.baseOffer).toBeCloseTo(5000)
+    expect(result.discountedOffer).toBeCloseTo(4500)
+    expect(result.discounted.passThroughTax).toBeCloseTo(810)
+    // The guest paid 5000 + 650 fee + 900 tax = 6550 and saves 10% of it
+    expect(result.baseGuestTotal).toBeCloseTo(6550)
+    expect(result.guestSavings).toBeCloseTo(655)
+  })
+})
+
+describe('offerFromPayout', () => {
+  it('recovers the offer and guest total from a payout', () => {
+    expect(offerFromPayout(5000 * 0.97 + 900, 900, 0.03)).toBeCloseTo(5000)
+    expect(guestTotalFromPayout(5000 * 0.97 + 900, 900, 0.13, 0.03)).toBeCloseTo(6550)
   })
 })
 
@@ -152,7 +176,8 @@ describe('specialOfferFromTotal', () => {
     const offer = specialOfferFromTotal(5700, 0.13, 0.18, 0.03)
     expect(offer.offer).toBeCloseTo(5700 / 1.31)
     expect(offer.offer + offer.serviceFee + offer.taxes).toBeCloseTo(5700)
-    expect(offer.hostPayout).toBeCloseTo(offer.offer * 0.97)
+    // Airbnb passes the taxes through, so they land in the payout (booking revenue)
+    expect(offer.payout).toBeCloseTo(offer.offer * 0.97 + offer.taxes)
   })
 
   it('defaults to the Oahu tax rate', () => {

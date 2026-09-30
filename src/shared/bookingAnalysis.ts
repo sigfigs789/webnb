@@ -294,26 +294,68 @@ export function pocketAfterTaxes(revenue: number, passThroughTax: number, nights
   }
 }
 
+/**
+ * The special offer price behind an Airbnb payout. Airbnb pays out the offer
+ * less its host fee plus the taxes it collected, and the taxes are recorded as
+ * pass-through tax, so the offer is what is left once they come back out.
+ */
+export function offerFromPayout(revenue: number, passThroughTax: number, hostFeeRate = AIRBNB_HOST_FEE_RATE): number {
+  return Math.max(0, revenue - passThroughTax) / (1 - hostFeeRate)
+}
+
+/** What the guest pays all-in for a payout: offer + guest service fee + the pass-through taxes. */
+export function guestTotalFromPayout(
+  revenue: number,
+  passThroughTax: number,
+  guestFeeRate = AIRBNB_GUEST_FEE_RATE,
+  hostFeeRate = AIRBNB_HOST_FEE_RATE
+): number {
+  return offerFromPayout(revenue, passThroughTax, hostFeeRate) * (1 + guestFeeRate) + passThroughTax
+}
+
 export interface DiscountScenario {
   rate: number
   base: PocketBreakdown
   discounted: PocketBreakdown
+  baseOffer: number
+  discountedOffer: number
+  baseGuestTotal: number
+  discountedGuestTotal: number
+  /** Drop in what the guest pays all-in, including the fee and taxes that shrink with the price. */
   guestSavings: number
   pocketLoss: number
   /** Extra nights at the discounted pocket rate needed to earn the discount back. */
   breakEvenNights: number
 }
 
-/** Pass-through tax scales with the price, so it shrinks by the same rate. */
-export function discountScenario(revenue: number, passThroughTax: number, nights: number, rate: number): DiscountScenario {
+/**
+ * A discount comes off the special offer price. The host fee, guest fee and
+ * pass-through taxes are all charged on that price, so every figure shrinks by
+ * the same rate.
+ */
+export function discountScenario(
+  revenue: number,
+  passThroughTax: number,
+  nights: number,
+  rate: number,
+  guestFeeRate = AIRBNB_GUEST_FEE_RATE,
+  hostFeeRate = AIRBNB_HOST_FEE_RATE
+): DiscountScenario {
+  const keep = 1 - rate
   const base = pocketAfterTaxes(revenue, passThroughTax, nights)
-  const discounted = pocketAfterTaxes(revenue * (1 - rate), passThroughTax * (1 - rate), nights)
+  const discounted = pocketAfterTaxes(revenue * keep, passThroughTax * keep, nights)
   const pocketLoss = base.pocket - discounted.pocket
+  const baseOffer = offerFromPayout(revenue, passThroughTax, hostFeeRate)
+  const baseGuestTotal = guestTotalFromPayout(revenue, passThroughTax, guestFeeRate, hostFeeRate)
   return {
     rate,
     base,
     discounted,
-    guestSavings: revenue - discounted.revenue,
+    baseOffer,
+    discountedOffer: baseOffer * keep,
+    baseGuestTotal,
+    discountedGuestTotal: baseGuestTotal * keep,
+    guestSavings: baseGuestTotal * rate,
     pocketLoss,
     breakEvenNights: discounted.pocketPerNight > 0 ? pocketLoss / discounted.pocketPerNight : 0,
   }
@@ -327,13 +369,17 @@ export interface SpecialOffer {
   serviceFee: number
   taxes: number
   hostFee: number
-  hostPayout: number
+  /**
+   * What Airbnb sends you: the offer less the host fee plus the taxes it
+   * passes through. This is the booking's Revenue, and `taxes` its Pass Through Tax.
+   */
+  payout: number
 }
 
 /**
  * Works back from what the guest should pay all-in to the price to enter in an
- * Airbnb special offer. The guest pays offer + service fee + taxes, and both
- * the fee and taxes are charged on the offer price, so offer = total / (1 + fee + tax).
+ * Airbnb special offer. The offer is the pre-tax base: the guest pays offer +
+ * service fee + taxes, both charged on the offer, so offer = total / (1 + fee + tax).
  */
 export function specialOfferFromTotal(
   total: number,
@@ -349,6 +395,6 @@ export function specialOfferFromTotal(
     serviceFee: offer * guestFeeRate,
     taxes: offer * taxRate,
     hostFee,
-    hostPayout: offer - hostFee,
+    payout: offer - hostFee + offer * taxRate,
   }
 }

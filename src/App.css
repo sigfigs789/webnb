@@ -1330,6 +1330,15 @@ td.note-cell {
   color: #718096;
 }
 
+.analyzer__mode {
+  margin-bottom: 0.875rem;
+}
+
+.analyzer__use-offer {
+  width: auto;
+  margin-top: 0.875rem;
+}
+
 @media (min-width: 640px) {
   .analyzer__tiles {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
