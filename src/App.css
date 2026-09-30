@@ -1339,7 +1339,7 @@ body.analyzer--dragging * {
   left: 0;
   top: -0.2rem;
   height: 0.55rem;
-  border-left: 1px solid #e2e8f0;
+  border-left: 1px solid rgba(26, 32, 44, 0.45);
 }
 
 /* A small notch on the axis halfway through each month */
@@ -1348,7 +1348,7 @@ body.analyzer--dragging * {
   top: 0;
   width: 1px;
   height: 3px;
-  background: #e2e8f0;
+  background: rgba(26, 32, 44, 0.25);
 }
 
 .analyzer__bar-grid {
@@ -1360,32 +1360,19 @@ body.analyzer--dragging * {
   pointer-events: none;
 }
 
-/* Soft white cuts through the colour, so months read without boxing the bar in */
+/* Dark month lines, each drawn inside its own bar */
 .analyzer__bar-line {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(255, 255, 255, 0.7);
-  mix-blend-mode: soft-light;
-}
-
-.analyzer__bar-line::after {
-  /* A second, fainter pass keeps the line visible on the pale open and past stretches */
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(45, 55, 72, 0.12);
+  background: rgba(26, 32, 44, 0.45);
 }
 
 .analyzer__bar-line--mid {
-  top: 30%;
-  bottom: 30%;
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.analyzer__bar-line--mid::after {
-  background: rgba(45, 55, 72, 0.08);
+  top: 25%;
+  bottom: 25%;
+  background: rgba(26, 32, 44, 0.25);
 }
 
 .analyzer__legend {
