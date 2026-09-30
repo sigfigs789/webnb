@@ -23,4 +23,10 @@ describe('BookingAnalyzer', () => {
     // $6,900 over 34 nights
     expect(html).toContain('$202.94')
   })
+
+  it('labels the stays that could still be booked', () => {
+    const html = renderToString(<BookingAnalyzer bookings={[]} />)
+    expect(html).toContain('Potential bookable stays')
+    expect(html).not.toContain('Max more')
+  })
 })

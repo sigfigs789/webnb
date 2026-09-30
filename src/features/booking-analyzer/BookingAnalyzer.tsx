@@ -518,7 +518,7 @@ export function BookingAnalyzer({ bookings }: Props) {
                 <tbody>
                   <CapacityRow label="Booked stays" before={impact.before.bookedStays} after={impact.after.bookedStays} />
                   <CapacityRow
-                    label={`Max more ${minNightsValue}+ night stays`}
+                    label="Potential bookable stays"
                     before={impact.before.maxAdditionalStays}
                     after={impact.after.maxAdditionalStays}
                   />
