@@ -97,6 +97,13 @@ describe('findGaps', () => {
     expect(gaps[0]).toMatchObject({ nights: Infinity, nightsInWindow: 12, stranded: false, maxStays: 1 })
   })
 
+  it('counts a stay that checks in before the window ends and checks out after', () => {
+    // Feb 11 → Jan 1 is 324 open nights with nothing booked after: 10 stays finish
+    // inside the window and an 11th checks in during it, so all 11 count
+    const gaps = findGaps([range('2026-01-01', '2026-02-11')], window, 30)
+    expect(gaps[0]).toMatchObject({ nightsInWindow: 324, maxStays: 11 })
+  })
+
   it('fits as many minimum-length stays as the gap allows', () => {
     const gaps = findGaps([range('2026-04-01', '2027-01-01')], window, 30)
     // Jan 1 → Apr 1 is 90 nights: three 30-night stays
