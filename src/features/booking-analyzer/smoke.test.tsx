@@ -38,6 +38,14 @@ describe('BookingAnalyzer', () => {
     expect(after.match(/role="slider"/g)?.length).toBeGreaterThan(1)
   })
 
+  it('draws month lines and halfway marks across the bars', () => {
+    const html = renderToString(<BookingAnalyzer bookings={[]} />)
+    // The default window is a full calendar year: 12 month starts, each with a 15th
+    expect(html.match(/analyzer__grid-line"/g)?.length).toBe(12)
+    expect(html.match(/analyzer__grid-line analyzer__grid-line--mid/g)?.length).toBe(12)
+    expect(html).toContain('title="Jul 15"')
+  })
+
   it('labels the stays that could still be booked', () => {
     const html = renderToString(<BookingAnalyzer bookings={[]} />)
     expect(html).toContain('Potential bookable stays')
