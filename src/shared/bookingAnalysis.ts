@@ -171,6 +171,11 @@ export interface Gap extends NightRange {
    * checking in near the window end counts even if it checks out after it.
    */
   maxStays: number
+  /**
+   * Where those stays would go: minimum-length stays packed from the start of
+   * the gap, with the turnover gap before each one that has a neighbour.
+   */
+  potentialStays: NightRange[]
 }
 
 export interface CalendarCapacity {
@@ -241,7 +246,11 @@ export function findGaps(occupied: NightRange[], window: NightRange, minNights: 
     const firstStart = start + (leftBounded ? gapNights : 0)
     const startsInWindow = firstStart < window.end ? Math.ceil((window.end - firstStart) / (minNights + gapNights)) : 0
     const maxStays = stranded ? 0 : Math.min(startsInWindow, fit)
-    gaps.push({ start, end, nights, nightsInWindow, stranded, maxStays })
+    const potentialStays = Array.from({ length: maxStays }, (_, i) => {
+      const stayStart = firstStart + i * (minNights + gapNights)
+      return { start: stayStart, end: stayStart + minNights }
+    })
+    gaps.push({ start, end, nights, nightsInWindow, stranded, maxStays, potentialStays })
   }
 
   for (const range of mergeRanges(occupied)) {

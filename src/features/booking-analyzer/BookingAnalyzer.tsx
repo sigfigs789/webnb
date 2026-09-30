@@ -99,12 +99,14 @@ function Delta({ proposed, reference }: { proposed: number; reference: number | 
   )
 }
 
-type DayKind = 'past' | 'booked' | 'blocked' | 'proposal' | 'stranded' | 'open'
+type DayKind = 'past' | 'booked' | 'blocked' | 'proposal' | 'potential' | 'stranded' | 'open'
 
 interface Segment {
   kind: DayKind
   start: number
   nights: number
+  /** For potential stays: which one (1-based), so back-to-back stays stay separate blocks. */
+  stay?: number
 }
 
 function timelineSegments(
@@ -117,19 +119,26 @@ function timelineSegments(
 ): Segment[] {
   const inside = (day: number, ranges: NightRange[]) => ranges.some(r => day >= r.start && day < r.end)
   const stranded = capacity.gaps.filter(gap => gap.stranded)
+  const potential = capacity.gaps.flatMap(gap => gap.potentialStays)
   const segments: Segment[] = []
 
   for (let day = window.start; day < window.end; day++) {
     let kind: DayKind = 'open'
+    let stay: number | undefined
+    const potentialIndex = potential.findIndex(r => day >= r.start && day < r.end)
     if (proposal && day >= proposal.start && day < proposal.end) kind = 'proposal'
     else if (inside(day, stays)) kind = 'booked'
     else if (inside(day, blocked)) kind = 'blocked'
     else if (day < today) kind = 'past'
     else if (inside(day, stranded)) kind = 'stranded'
+    else if (potentialIndex >= 0) {
+      kind = 'potential'
+      stay = potentialIndex + 1
+    }
 
     const last = segments[segments.length - 1]
-    if (last && last.kind === kind) last.nights++
-    else segments.push({ kind, start: day, nights: 1 })
+    if (last && last.kind === kind && last.stay === stay) last.nights++
+    else segments.push({ kind, start: day, nights: 1, stay })
   }
   return segments
 }
@@ -151,6 +160,7 @@ const KIND_LABELS: Record<DayKind, string> = {
   booked: 'Booked',
   blocked: 'Blocked',
   proposal: 'This booking',
+  potential: 'Potential stay',
   stranded: 'Stranded',
   open: 'Open',
 }
@@ -164,10 +174,18 @@ function Timeline({ label, segments, window }: { label: string; segments: Segmen
         {segments.map(segment => (
           <span
             key={`${segment.kind}-${segment.start}`}
-            className={`analyzer__segment analyzer__segment--${segment.kind}`}
+            className={`analyzer__segment analyzer__segment--${segment.kind}${
+              segment.stay !== undefined && segment.stay % 2 === 0 ? ' analyzer__segment--alt' : ''
+            }`}
             style={{ width: `${(segment.nights / total) * 100}%` }}
-            title={`${KIND_LABELS[segment.kind]}: ${fromDay(segment.start)} · ${formatNights(segment.nights)}`}
-          />
+            title={`${KIND_LABELS[segment.kind]}${segment.stay !== undefined ? ` ${segment.stay}` : ''}: ${fromDay(
+              segment.start
+            )} · ${formatNights(segment.nights)}`}
+          >
+            {segment.stay !== undefined && segment.nights / total > 0.035 && (
+              <span className="analyzer__segment-label">{segment.stay}</span>
+            )}
+          </span>
         ))}
       </div>
     </div>
@@ -531,7 +549,7 @@ export function BookingAnalyzer({ bookings }: Props) {
               ))}
             </div>
             <div className="analyzer__legend">
-              {(['booked', 'proposal', 'blocked', 'stranded', 'open', 'past'] as DayKind[]).map(kind => (
+              {(['booked', 'proposal', 'potential', 'blocked', 'stranded', 'open', 'past'] as DayKind[]).map(kind => (
                 <span key={kind}>
                   <i className={`analyzer__swatch analyzer__segment--${kind}`} />
                   {KIND_LABELS[kind]}
