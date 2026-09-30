@@ -8,7 +8,7 @@ import {
   passThroughForRevenue,
   pocketAfterTaxes,
   shiftYears,
-  specialOfferFromTotal,
+  takeHomeFromSpecialOffer,
   toDay,
   windowRevenue,
   NightRange,
@@ -186,21 +186,21 @@ describe('passThroughForRevenue', () => {
   })
 
   it('matches the taxes of a special offer', () => {
-    const offer = specialOfferFromTotal(5700)
-    expect(passThroughForRevenue(offer.offer)).toBeCloseTo(offer.taxes)
+    const offer = takeHomeFromSpecialOffer(5700)
+    expect(passThroughForRevenue(offer.takeHome)).toBeCloseTo(offer.taxes)
   })
 })
 
-describe('specialOfferFromTotal', () => {
-  it('backs the fee and taxes out of the all-inclusive total', () => {
-    const offer = specialOfferFromTotal(5700, 0.13, 0.18)
-    expect(offer.offer).toBeCloseTo(5700 / 1.31)
-    expect(offer.offer + offer.serviceFee + offer.taxes).toBeCloseTo(5700)
+describe('takeHomeFromSpecialOffer', () => {
+  it('backs the fee and taxes out of the special offer price', () => {
+    const offer = takeHomeFromSpecialOffer(5700, 0.13, 0.18)
+    expect(offer.takeHome).toBeCloseTo(5700 / 1.31)
+    expect(offer.takeHome + offer.serviceFee + offer.taxes).toBeCloseTo(5700)
     // Airbnb passes the taxes through, so they land in the payout (booking revenue)
-    expect(offer.payout).toBeCloseTo(offer.offer + offer.taxes)
+    expect(offer.payout).toBeCloseTo(offer.takeHome + offer.taxes)
   })
 
   it('defaults to the Oahu tax rate', () => {
-    expect(specialOfferFromTotal(5700).offer).toBeCloseTo(5700 / (1 + 0.13 + TAX_RATE))
+    expect(takeHomeFromSpecialOffer(5700).takeHome).toBeCloseTo(5700 / (1 + 0.13 + TAX_RATE))
   })
 })

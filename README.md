@@ -17,7 +17,7 @@ The app is a Vite + React + TypeScript single-page app backed by Supabase. It tr
   - compares its revenue/night (excluding pass-through tax) with the same dates last year, the same months last year, last year's average, and the all-time average;
   - shows the calendar impact against the minimum stay (30 nights by default): gaps left before and after it, nights stranded, and how many stays the window can still hold before vs after, with extra blocked dates you can add;
   - shows what an x% discount costs in pocket after taxes and how its revenue/night compares with the same dates last year, with a 5–20% ladder and a break-even in nights;
-  - a special offer calculator that works back from the guest's all-inclusive total: `offer = total ÷ (1 + guest fee + taxes)`, defaulting to a 13% guest fee and 17.962% Oahu taxes (4.712% GET + 10.25% TAT + 3% Oahu TAT), with the offer's revenue/night compared with the same dates last year. Revenue/night is take-home ÷ nights; pass-through tax is the tax Airbnb adds on top, estimated as `take-home × tax` unless entered.
+  - a special offer calculator that works back from the special offer price (what the guest pays all-in) to your take-home: `take-home = special offer price ÷ (1 + guest fee + taxes)`, defaulting to a 13% guest fee and 17.962% Oahu taxes (4.712% GET + 10.25% TAT + 3% Oahu TAT), with your take-home per night compared with the same dates last year. Revenue/night is take-home ÷ nights; pass-through tax is the tax Airbnb adds on top, estimated as `take-home × tax` unless entered.
 - Shared calculation modules covered by Vitest tests.
 
 ## Setup

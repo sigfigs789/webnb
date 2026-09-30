@@ -13,7 +13,7 @@ import {
   nightsOf,
   passThroughForRevenue,
   pocketAfterTaxes,
-  specialOfferFromTotal,
+  takeHomeFromSpecialOffer,
   toDay,
 } from '../../shared/bookingAnalysis'
 
@@ -229,17 +229,17 @@ export function BookingAnalyzer({ bookings }: Props) {
     [bookings, hasDates, startDate, endDate, revenueValue]
   )
 
-  // Either work back from the guest's all-in total, or forward from a pre-tax offer price.
+  // Either work back from a special offer price, or forward from a take-home.
   const offerInput = parseNumber(offerAmount)
-  const offer = specialOfferFromTotal(
+  const offer = takeHomeFromSpecialOffer(
     offerMode === 'total' ? offerInput : offerInput * (1 + guestFeeRate + offerTaxRate),
     guestFeeRate,
     offerTaxRate
   )
-  const offerPocket = pocketAfterTaxes(offer.offer, offer.taxes, nights)
+  const offerPocket = pocketAfterTaxes(offer.takeHome, offer.taxes, nights)
 
   const useOfferAsBooking = () => {
-    setRevenue(offer.offer.toFixed(2))
+    setRevenue(offer.takeHome.toFixed(2))
     // The estimate from the revenue is exactly the offer's taxes, so leave it on auto.
     setPassThroughTax('')
   }
@@ -322,7 +322,7 @@ export function BookingAnalyzer({ bookings }: Props) {
       </div>
 
       <p className="analyzer__hint">
-        Take-home is what the stay earns with no tax in it (the special offer price), so revenue per night is
+        Take-home is what the stay earns with no tax in it, so revenue per night is
         take-home ÷ nights. Pass Through Tax is the Oahu tax Airbnb adds on top and passes to you, worked out at the
         rate in the special offer section; type a figure to override it. Or build the booking from a special offer
         below and press “Use for this booking”.
@@ -580,17 +580,18 @@ export function BookingAnalyzer({ bookings }: Props) {
           <>
             <div className="analyzer__tiles">
               <div className="analyzer__tile">
-                <span className="analyzer__tile-label">Take-home (offer price)</span>
+                <span className="analyzer__tile-label">Take-home</span>
                 <span className="analyzer__tile-value">{formatCurrency(discount.discounted.revenue)}</span>
                 <span className="analyzer__tile-sub">
                   Down from {formatCurrency(discount.base.revenue)}
                 </span>
               </div>
               <div className="analyzer__tile">
-                <span className="analyzer__tile-label">Guest saves (all-in)</span>
+                <span className="analyzer__tile-label">Guest saves</span>
                 <span className="analyzer__tile-value">{formatCurrency(discount.guestSavings)}</span>
                 <span className="analyzer__tile-sub">
-                  {formatCurrency(discount.baseGuestTotal)} → {formatCurrency(discount.discountedGuestTotal)}
+                  Special offer price {formatCurrency(discount.baseGuestTotal)} →{' '}
+                  {formatCurrency(discount.discountedGuestTotal)}
                 </span>
               </div>
               <div className="analyzer__tile analyzer__tile--primary">
@@ -621,7 +622,7 @@ export function BookingAnalyzer({ bookings }: Props) {
                   <tr>
                     <th>Discount</th>
                     <th>Take-home</th>
-                    <th>Guest pays all-in</th>
+                    <th>Special offer price</th>
                     <th>Airbnb payout</th>
                     <th>Per night</th>
                     <th>vs same dates last year</th>
@@ -651,7 +652,7 @@ export function BookingAnalyzer({ bookings }: Props) {
               </table>
             </div>
             <p className="analyzer__hint">
-              The discount comes off the take-home (the offer price), so the guest fee and pass-through taxes both
+              The discount comes off the take-home, so the guest fee, pass-through taxes and special offer price all
               shrink with it. Airbnb payout = take-home + pass-through tax. In pocket = payout − taxes owed, where
               taxes owed are {formatPercent(TAX_RATE, 3)} (GET + TAT + Oahu TAT) of the take-home, the same as the Performance
               tab. Cleaning and other expenses are not deducted.
@@ -664,9 +665,8 @@ export function BookingAnalyzer({ bookings }: Props) {
       <section className="analyzer__section">
         <h3>Special offer calculator</h3>
         <p className="analyzer__hint">
-          The special offer price is the pre-tax base. Airbnb adds its guest service fee and the taxes on top, then
-          pays the taxes back out to you with the payout. Start from what the guest should pay all-in, or from an
-          offer price.
+          The special offer price is what the guest pays all-in: your take-home plus Airbnb's guest service fee and
+          the taxes, which Airbnb pays back out to you with the payout. Start from either one.
         </p>
         <div className="revenue-chart__toggle analyzer__mode" role="group" aria-label="Start from">
           {(['total', 'offer'] as const).map(mode => (
@@ -677,17 +677,17 @@ export function BookingAnalyzer({ bookings }: Props) {
               aria-pressed={offerMode === mode}
               onClick={() => {
                 // Carry the current figure across so switching does not lose the scenario
-                setOfferAmount((mode === 'total' ? offer.total : offer.offer).toFixed(2))
+                setOfferAmount((mode === 'total' ? offer.specialOfferPrice : offer.takeHome).toFixed(2))
                 setOfferMode(mode)
               }}
             >
-              {mode === 'total' ? 'Guest all-in total' : 'Offer price'}
+              {mode === 'total' ? 'Special offer price' : 'Take-home'}
             </button>
           ))}
         </div>
         <div className="form-grid">
           <div className="form-field">
-            <label htmlFor="so-amount">{offerMode === 'total' ? 'Guest pays all-in ($)' : 'Special offer price ($)'}</label>
+            <label htmlFor="so-amount">{offerMode === 'total' ? 'Special offer price ($)' : 'Take-home ($)'}</label>
             <input id="so-amount" type="number" min="0" step="any" value={offerAmount} onChange={e => setOfferAmount(e.target.value)} />
           </div>
           <div className="form-field">
@@ -702,15 +702,15 @@ export function BookingAnalyzer({ bookings }: Props) {
 
         <div className="analyzer__offer">
           <span className="analyzer__offer-label">
-            {offerMode === 'total' ? 'Special offer price' : 'Guest pays all-in'}
+            {offerMode === 'total' ? 'Take-home' : 'Special offer price'}
           </span>
           <span className="analyzer__offer-value">
-            {formatCurrencyPrecise(offerMode === 'total' ? offer.offer : offer.total)}
+            {formatCurrencyPrecise(offerMode === 'total' ? offer.takeHome : offer.specialOfferPrice)}
           </span>
           <span className="analyzer__offer-formula">
             {offerMode === 'total'
-              ? `${formatCurrency(offer.total)} ÷ (1 + ${guestFeePct || 0}% + ${offerTaxPct || 0}%)`
-              : `${formatCurrency(offer.offer)} × (1 + ${guestFeePct || 0}% + ${offerTaxPct || 0}%)`}
+              ? `${formatCurrency(offer.specialOfferPrice)} ÷ (1 + ${guestFeePct || 0}% + ${offerTaxPct || 0}%)`
+              : `${formatCurrency(offer.takeHome)} × (1 + ${guestFeePct || 0}% + ${offerTaxPct || 0}%)`}
           </span>
         </div>
 
@@ -730,8 +730,8 @@ export function BookingAnalyzer({ bookings }: Props) {
           <table className="analyzer__table analyzer__table--breakdown">
             <tbody>
               <tr>
-                <td>Special offer, pre-tax (you enter this)</td>
-                <td>{formatCurrencyPrecise(offer.offer)}</td>
+                <td>Take-home</td>
+                <td>{formatCurrencyPrecise(offer.takeHome)}</td>
               </tr>
               <tr>
                 <td>+ Airbnb guest service fee</td>
@@ -742,8 +742,8 @@ export function BookingAnalyzer({ bookings }: Props) {
                 <td>{formatCurrencyPrecise(offer.taxes)}</td>
               </tr>
               <tr className="analyzer__row--total">
-                <td>= Guest pays</td>
-                <td>{formatCurrencyPrecise(offer.offer + offer.serviceFee + offer.taxes)}</td>
+                <td>= Special offer price (guest pays)</td>
+                <td>{formatCurrencyPrecise(offer.specialOfferPrice)}</td>
               </tr>
               <tr>
                 <td>− Guest service fee (Airbnb keeps)</td>
@@ -778,8 +778,8 @@ export function BookingAnalyzer({ bookings }: Props) {
           Use for this booking
         </button>
         <p className="analyzer__hint">
-          Taxes owed are {formatPercent(TAX_RATE, 3)} of the offer price, the same as the Performance tab, so the
-          pass-through tax covers them and you keep the offer price. Oahu taxes default to {formatPercent(TAX_RATE, 3)}: 4.712% GET + 10.25% state TAT + 3% Oahu TAT. Airbnb's
+          Taxes owed are {formatPercent(TAX_RATE, 3)} of the take-home, the same as the Performance tab, so the
+          pass-through tax covers them and you keep the take-home. Oahu taxes default to {formatPercent(TAX_RATE, 3)}: 4.712% GET + 10.25% state TAT + 3% Oahu TAT. Airbnb's
           guest fee varies by stay and tends to be lower on long stays, so check it against a real quote and adjust.
         </p>
       </section>
