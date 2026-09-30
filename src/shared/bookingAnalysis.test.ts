@@ -4,6 +4,7 @@ import {
   compareRevenuePerNight,
   discountScenario,
   findGaps,
+  fitStays,
   guestTotal,
   listingPriceFor,
   passThroughForRevenue,
@@ -103,6 +104,37 @@ describe('findGaps', () => {
   })
 })
 
+describe('fitStays', () => {
+  it('packs stays back to back with no gap', () => {
+    expect(fitStays(90, 30)).toBe(3)
+    expect(fitStays(29, 30)).toBe(0)
+  })
+
+  it('needs turnover nights beside neighbours and between stays', () => {
+    // 90 nights with a 2-night gap: 2 + 30 + 2 + 30 + 2 leaves 24, so only two fit
+    expect(fitStays(90, 30, 2)).toBe(2)
+    // 34 nights between two stays needs 2 + 30 + 2
+    expect(fitStays(34, 30, 2)).toBe(1)
+    expect(fitStays(33, 30, 2)).toBe(0)
+  })
+
+  it('skips the turnover on an open side', () => {
+    expect(fitStays(32, 30, 2, false, true)).toBe(1)
+    expect(fitStays(Infinity, 30, 3)).toBe(Infinity)
+  })
+})
+
+describe('findGaps with a turnover gap', () => {
+  const window = range('2026-01-01', '2027-01-01')
+
+  it('strands a gap that only fits a stay back to back', () => {
+    const stays = [range('2026-01-01', '2026-02-01'), range('2026-03-03', '2027-01-01')]
+    // Feb 1 → Mar 3 is 30 nights
+    expect(findGaps(stays, window, 30)[0]).toMatchObject({ nights: 30, stranded: false, maxStays: 1 })
+    expect(findGaps(stays, window, 30, 1)[0]).toMatchObject({ nights: 30, stranded: true, maxStays: 0 })
+  })
+})
+
 describe('analyzeProposal', () => {
   const window = range('2026-01-01', '2027-01-01')
   const stays = [range('2026-01-01', '2026-03-01'), range('2026-05-01', '2027-01-01')]
@@ -137,6 +169,18 @@ describe('analyzeProposal', () => {
     expect(impact.before.maxAdditionalStays).toBe(1)
     expect(impact.after.maxAdditionalStays).toBe(0)
     expect(impact.possibleStaysDelta).toBe(0)
+  })
+
+  it('fits fewer future stays as the gap between bookings grows', () => {
+    const proposal = range('2026-03-01', '2026-04-01')
+    // After the proposal, Apr 1 → May 1 is 30 open nights
+    expect(analyzeProposal(stays, [], proposal, window, 30, 0).after.maxAdditionalStays).toBe(1)
+    const withGap = analyzeProposal(stays, [], proposal, window, 30, 3)
+    expect(withGap.after.maxAdditionalStays).toBe(0)
+    expect(withGap.newlyStrandedNights).toBe(30)
+    // Before: Mar 1 → May 1 is 61 nights, which fits 3 + 30 + 3 but not two stays
+    expect(withGap.before.maxAdditionalStays).toBe(1)
+    expect(withGap.possibleStaysDelta).toBe(0)
   })
 
   it('flags an overlap with an existing stay', () => {
