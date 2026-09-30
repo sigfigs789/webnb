@@ -5,9 +5,11 @@ import {
   discountScenario,
   findGaps,
   guestTotal,
+  listingPriceFor,
   passThroughForRevenue,
   pocketAfterTaxes,
   shiftYears,
+  specialOfferForTakeHome,
   takeHomeFromSpecialOffer,
   toDay,
   windowRevenue,
@@ -138,69 +140,55 @@ describe('analyzeProposal', () => {
 })
 
 describe('pocketAfterTaxes', () => {
-  it('adds the pass-through tax to the payout and taxes the real revenue', () => {
+  it('adds the pass-through tax to the payout and remits it in full', () => {
     const result = pocketAfterTaxes(9000, 1000, 30)
     expect(result.payout).toBeCloseTo(10000)
-    expect(result.taxes).toBeCloseTo(9000 * TAX_RATE)
-    expect(result.pocket).toBeCloseTo(10000 - 9000 * TAX_RATE)
-    // Revenue carries no tax, so the nightly rate is just revenue / nights
-    expect(result.revenuePerNight).toBeCloseTo(300)
-  })
-
-  it('keeps the whole revenue when the pass-through tax covers the taxes', () => {
-    const result = pocketAfterTaxes(9000, passThroughForRevenue(9000), 30)
+    expect(result.taxes).toBeCloseTo(1000)
     expect(result.pocket).toBeCloseTo(9000)
+    // Take-home carries no tax, so the nightly rate is just take-home / nights
+    expect(result.revenuePerNight).toBeCloseTo(300)
   })
 })
 
 describe('discountScenario', () => {
-  it('reports the discount as money out of pocket after taxes', () => {
-    const result = discountScenario(10000, 0, 30, 0.1)
-    expect(result.discounted.revenue).toBeCloseTo(9000)
-    expect(result.pocketLoss).toBeCloseTo(1000 * (1 - TAX_RATE))
-    expect(result.discounted.revenuePerNight).toBeCloseTo(300)
-    // Loss divided by the discounted pocket per night: 3 nights at 30 nights × 10%
-    expect(result.breakEvenNights).toBeCloseTo(30 / 9)
-  })
-
-  it('takes the discount off the revenue, fees and taxes alike', () => {
-    // $5,000 revenue with 18% tax passed through on top
-    const result = discountScenario(5000, 900, 30, 0.1, 0.13)
+  it('takes the discount off the listing price, fee and tax alike', () => {
+    // $5,000 take-home at a 20% host fee is a $6,250 listing; 18% tax on it is $1,125
+    const result = discountScenario(5000, 1125, 30, 0.1, 0.2)
     expect(result.discounted.revenue).toBeCloseTo(4500)
-    expect(result.discounted.passThroughTax).toBeCloseTo(810)
-    // The guest paid 5000 + 650 fee + 900 tax = 6550 and saves 10% of it
-    expect(result.baseGuestTotal).toBeCloseTo(6550)
-    expect(result.guestSavings).toBeCloseTo(655)
-  })
-})
-
-describe('guestTotal', () => {
-  it('adds the guest fee and the pass-through tax to the revenue', () => {
-    expect(guestTotal(5000, 900, 0.13)).toBeCloseTo(6550)
+    expect(result.discounted.passThroughTax).toBeCloseTo(1012.5)
+    expect(result.baseGuestTotal).toBeCloseTo(7375)
+    expect(result.guestSavings).toBeCloseTo(737.5)
+    expect(result.pocketLoss).toBeCloseTo(500)
+    expect(result.discounted.revenuePerNight).toBeCloseTo(150)
+    // $500 lost at $150 / night
+    expect(result.breakEvenNights).toBeCloseTo(500 / 150)
   })
 })
 
 describe('passThroughForRevenue', () => {
-  it('charges the tax on top of revenue', () => {
-    expect(passThroughForRevenue(5000, 0.18)).toBeCloseTo(900)
+  it('charges the tax on the listing price, host fee included', () => {
+    expect(listingPriceFor(5000, 0.2)).toBeCloseTo(6250)
+    expect(passThroughForRevenue(5000, 0.18, 0.2)).toBeCloseTo(1125)
+    expect(guestTotal(5000, 1125, 0.2)).toBeCloseTo(7375)
   })
 
   it('matches the taxes of a special offer', () => {
-    const offer = takeHomeFromSpecialOffer(5700)
+    const offer = takeHomeFromSpecialOffer(9381)
     expect(passThroughForRevenue(offer.takeHome)).toBeCloseTo(offer.taxes)
   })
 })
 
 describe('takeHomeFromSpecialOffer', () => {
-  it('backs the fee and taxes out of the special offer price', () => {
-    const offer = takeHomeFromSpecialOffer(5700, 0.13, 0.18)
-    expect(offer.takeHome).toBeCloseTo(5700 / 1.31)
-    expect(offer.takeHome + offer.serviceFee + offer.taxes).toBeCloseTo(5700)
-    // Airbnb passes the taxes through, so they land in the payout (booking revenue)
+  it('matches a real booking: $9,381 paid leaves $6,901.96 take-home', () => {
+    const offer = takeHomeFromSpecialOffer(9381)
+    expect(offer.listingPrice).toBeCloseTo(9381 / (1 + TAX_RATE))
+    expect(offer.takeHome).toBeCloseTo(6901.96, 2)
+    expect(offer.listingPrice + offer.taxes).toBeCloseTo(9381)
+    expect(offer.takeHome + offer.hostFee).toBeCloseTo(offer.listingPrice)
     expect(offer.payout).toBeCloseTo(offer.takeHome + offer.taxes)
   })
 
-  it('defaults to the Oahu tax rate', () => {
-    expect(takeHomeFromSpecialOffer(5700).takeHome).toBeCloseTo(5700 / (1 + 0.13 + TAX_RATE))
+  it('round-trips through specialOfferForTakeHome', () => {
+    expect(specialOfferForTakeHome(6901.96).specialOfferPrice).toBeCloseTo(9381, 0)
   })
 })

@@ -10,8 +10,8 @@ describe('BookingAnalyzer', () => {
     expect(html).toContain('Calendar impact')
     expect(html).toContain('Discount impact')
     expect(html).toContain('Special offer calculator')
-    // 5700 / (1 + 13% + 17.962%)
-    expect(html).toContain('$4,352.41')
+    // A guest paying $9,381 leaves $6,901.96 take-home at the default host fee
+    expect(html).toContain('$6,901.96')
   })
 
   it('starts with a July 4 → August 7 stay taking home $6,900', () => {

@@ -5,10 +5,11 @@ import { Booking } from './types'
 const DAY_MS = 1000 * 60 * 60 * 24
 
 /**
- * Airbnb's guest service fee under the split-fee model. It varies by stay and
- * tends to shrink on longer ones, so this is only a default for 30+ night bookings.
+ * Airbnb's host-only service fee, as a share of the listing price. Worked out
+ * from a real booking: a guest paying $9,381 left $6,901.96 take-home at the
+ * Oahu tax rate, so 1 − 6901.96 × (1 + tax) / 9381 ≈ 13.2109%.
  */
-export const AIRBNB_GUEST_FEE_RATE = 0.13
+export const AIRBNB_HOST_FEE_RATE = 0.132109
 
 /** Days since the epoch, so date ranges can be compared as plain integers. */
 export function toDay(date: string): number {
@@ -287,48 +288,62 @@ export function analyzeProposal(
 // ── Money in pocket and discounts ────────────────────
 
 /**
- * Money from one stay. `revenue` is the take-home: real revenue,
- * with no tax in it. Airbnb collects the Oahu taxes on top and passes them
- * through, so the payout is revenue + pass-through tax.
+ * Money from one stay under Airbnb's host-only fee. Airbnb charges no guest fee:
+ * the guest pays the listing price plus the Oahu taxes on it, and Airbnb keeps
+ * its host fee out of the listing price.
+ *
+ *   listing price     = take-home / (1 − host fee)
+ *   pass-through tax  = listing price × tax
+ *   special offer     = listing price + pass-through tax (what the guest pays)
+ *   payout            = take-home + pass-through tax
+ */
+export function listingPriceFor(takeHome: number, hostFeeRate = AIRBNB_HOST_FEE_RATE): number {
+  return hostFeeRate < 1 ? takeHome / (1 - hostFeeRate) : 0
+}
+
+/** The tax Airbnb collects on the listing price and passes through to you. */
+export function passThroughForRevenue(
+  takeHome: number,
+  taxRate = TAX_RATE,
+  hostFeeRate = AIRBNB_HOST_FEE_RATE
+): number {
+  return listingPriceFor(takeHome, hostFeeRate) * taxRate
+}
+
+/** The special offer price (what the guest pays all-in) for a take-home and its pass-through tax. */
+export function guestTotal(takeHome: number, passThroughTax: number, hostFeeRate = AIRBNB_HOST_FEE_RATE): number {
+  return listingPriceFor(takeHome, hostFeeRate) + passThroughTax
+}
+
+/**
+ * `revenue` is the take-home: what you earn, with no tax in it. The
+ * pass-through tax is guest money you remit in full, so what stays in your
+ * pocket is the take-home.
  */
 export interface PocketBreakdown {
   revenue: number
   passThroughTax: number
-  /** What Airbnb sends: revenue plus the pass-through tax (what the Booking tab records as Revenue). */
+  /** What Airbnb sends: take-home plus the pass-through tax. */
   payout: number
+  /** Remitted to the state: the pass-through tax. */
   taxes: number
   pocket: number
   revenuePerNight: number
   pocketPerNight: number
 }
 
-/**
- * Same tax treatment as the Performance tab, which taxes recorded revenue net
- * of pass-through tax: that is this booking's real revenue.
- */
 export function pocketAfterTaxes(revenue: number, passThroughTax: number, nights: number): PocketBreakdown {
   const payout = revenue + passThroughTax
-  const taxes = Math.max(0, revenue) * TAX_RATE
-  const pocket = payout - taxes
+  const pocket = payout - passThroughTax
   return {
     revenue,
     passThroughTax,
     payout,
-    taxes,
+    taxes: passThroughTax,
     pocket,
     revenuePerNight: nights > 0 ? revenue / nights : 0,
     pocketPerNight: nights > 0 ? pocket / nights : 0,
   }
-}
-
-/** The tax Airbnb collects on top of real revenue and passes through. */
-export function passThroughForRevenue(revenue: number, taxRate = TAX_RATE): number {
-  return revenue * taxRate
-}
-
-/** The special offer price (what the guest pays all-in): take-home + guest service fee + the pass-through taxes. */
-export function guestTotal(revenue: number, passThroughTax: number, guestFeeRate = AIRBNB_GUEST_FEE_RATE): number {
-  return revenue * (1 + guestFeeRate) + passThroughTax
 }
 
 export interface DiscountScenario {
@@ -337,7 +352,7 @@ export interface DiscountScenario {
   discounted: PocketBreakdown
   baseGuestTotal: number
   discountedGuestTotal: number
-  /** Drop in the special offer price, including the fee and taxes that shrink with the take-home. */
+  /** Drop in the special offer price, including the tax that shrinks with it. */
   guestSavings: number
   pocketLoss: number
   /** Extra nights at the discounted pocket rate needed to earn the discount back. */
@@ -345,22 +360,21 @@ export interface DiscountScenario {
 }
 
 /**
- * A discount comes off the take-home. The guest fee
- * and pass-through taxes are both charged on that price, so every figure
- * shrinks by the same rate.
+ * A discount comes off the listing price. The host fee and pass-through tax
+ * are both charged on that price, so every figure shrinks by the same rate.
  */
 export function discountScenario(
   revenue: number,
   passThroughTax: number,
   nights: number,
   rate: number,
-  guestFeeRate = AIRBNB_GUEST_FEE_RATE
+  hostFeeRate = AIRBNB_HOST_FEE_RATE
 ): DiscountScenario {
   const keep = 1 - rate
   const base = pocketAfterTaxes(revenue, passThroughTax, nights)
   const discounted = pocketAfterTaxes(revenue * keep, passThroughTax * keep, nights)
   const pocketLoss = base.pocket - discounted.pocket
-  const baseGuestTotal = guestTotal(revenue, passThroughTax, guestFeeRate)
+  const baseGuestTotal = guestTotal(revenue, passThroughTax, hostFeeRate)
   return {
     rate,
     base,
@@ -376,32 +390,41 @@ export function discountScenario(
 // ── Special offer ────────────────────────────────────
 
 export interface SpecialOffer {
-  /** What the guest pays all-in: take-home + guest service fee + taxes. */
+  /** What the guest pays all-in: listing price + taxes. */
   specialOfferPrice: number
+  /** The price before tax, which Airbnb takes its host fee out of. */
+  listingPrice: number
+  taxes: number
+  hostFee: number
   /** What you earn, with no tax in it. */
   takeHome: number
-  serviceFee: number
-  taxes: number
-  /** What Airbnb sends you: take-home plus the taxes it passes through (new trips carry no host fee). */
+  /** What Airbnb sends you: take-home plus the taxes it passes through. */
   payout: number
 }
 
 /**
  * Works back from a special offer price (what the guest pays all-in) to the
- * take-home inside it. The guest service fee and taxes are both charged on the
- * take-home, so take-home = special offer price / (1 + fee + tax).
+ * take-home inside it. Taxes are charged on the listing price, so listing
+ * price = special offer price / (1 + tax), and Airbnb keeps its host fee out
+ * of that.
  */
 export function takeHomeFromSpecialOffer(
   specialOfferPrice: number,
-  guestFeeRate = AIRBNB_GUEST_FEE_RATE,
+  hostFeeRate = AIRBNB_HOST_FEE_RATE,
   taxRate = TAX_RATE
 ): SpecialOffer {
-  const takeHome = specialOfferPrice / (1 + guestFeeRate + taxRate)
-  return {
-    specialOfferPrice,
-    takeHome,
-    serviceFee: takeHome * guestFeeRate,
-    taxes: takeHome * taxRate,
-    payout: takeHome + takeHome * taxRate,
-  }
+  const listingPrice = specialOfferPrice / (1 + taxRate)
+  const hostFee = listingPrice * hostFeeRate
+  const takeHome = listingPrice - hostFee
+  const taxes = listingPrice * taxRate
+  return { specialOfferPrice, listingPrice, taxes, hostFee, takeHome, payout: takeHome + taxes }
+}
+
+/** The special offer price that leaves a given take-home. */
+export function specialOfferForTakeHome(
+  takeHome: number,
+  hostFeeRate = AIRBNB_HOST_FEE_RATE,
+  taxRate = TAX_RATE
+): SpecialOffer {
+  return takeHomeFromSpecialOffer(listingPriceFor(takeHome, hostFeeRate) * (1 + taxRate), hostFeeRate, taxRate)
 }

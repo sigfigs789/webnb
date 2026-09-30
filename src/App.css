@@ -1330,13 +1330,37 @@ td.note-cell {
   color: #718096;
 }
 
+/* Line inputs up across a row even when a label wraps to two lines: labels
+   sit on the input, and notes under an input hang below without taking room. */
+.analyzer .form-grid {
+  row-gap: 1.4rem;
+}
+
+.analyzer .form-field {
+  position: relative;
+  justify-content: flex-end;
+}
+
+/* Date inputs render a little taller than number inputs by default */
+.analyzer .form-field input {
+  height: 2.3rem;
+}
+
+.analyzer__field-note,
+.analyzer__field-link {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.2rem;
+  white-space: nowrap;
+}
+
 .analyzer__field-note {
   font-size: 0.68rem;
   color: #a0aec0;
 }
 
 .analyzer__field-link {
-  align-self: flex-start;
   background: none;
   padding: 0;
   font-size: 0.68rem;
