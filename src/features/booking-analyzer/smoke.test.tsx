@@ -13,4 +13,14 @@ describe('BookingAnalyzer', () => {
     // 5700 / (1 + 13% + 17.962%)
     expect(html).toContain('$4,352.41')
   })
+
+  it('starts with a July 4 → August 7 stay taking home $6,900', () => {
+    const html = renderToString(<BookingAnalyzer bookings={[]} />)
+    expect(html).toMatch(/id="an-start" type="date" value="\d{4}-07-04"/)
+    expect(html).toMatch(/id="an-end" type="date" value="\d{4}-08-07"/)
+    expect(html).toContain('Take-home ($)')
+    expect(html).toContain('value="6900"')
+    // $6,900 over 34 nights
+    expect(html).toContain('$202.94')
+  })
 })

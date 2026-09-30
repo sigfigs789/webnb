@@ -51,6 +51,15 @@ function todayString() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
+const DEFAULT_TAKE_HOME = '6900'
+
+/** The next July 4 → August 7 stay that has not started yet. */
+function defaultStay(today: string) {
+  const thisYear = Number(today.slice(0, 4))
+  const year = today < `${thisYear}-07-04` ? thisYear : thisYear + 1
+  return { startDate: `${year}-07-04`, endDate: `${year}-08-07` }
+}
+
 function parseNumber(value: string): number {
   const n = Number(value)
   return Number.isFinite(n) ? n : 0
@@ -165,9 +174,9 @@ function Timeline({ label, segments, window }: { label: string; segments: Segmen
 export function BookingAnalyzer({ bookings }: Props) {
   const today = todayString()
 
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [revenue, setRevenue] = useState('')
+  const [startDate, setStartDate] = useState(() => defaultStay(today).startDate)
+  const [endDate, setEndDate] = useState(() => defaultStay(today).endDate)
+  const [revenue, setRevenue] = useState(DEFAULT_TAKE_HOME)
   const [passThroughTax, setPassThroughTax] = useState('')
   const [minNights, setMinNights] = useState('30')
   const [windowStartInput, setWindowStartInput] = useState('')
@@ -272,7 +281,7 @@ export function BookingAnalyzer({ bookings }: Props) {
           {startDate && endDate && !hasDates && <span className="form-error">Must be after check-in</span>}
         </div>
         <div className="form-field">
-          <label htmlFor="an-revenue">Revenue ($)</label>
+          <label htmlFor="an-revenue">Take-home ($)</label>
           <input
             id="an-revenue"
             type="number"
@@ -290,7 +299,7 @@ export function BookingAnalyzer({ bookings }: Props) {
             type="number"
             min="0"
             step="any"
-            placeholder={revenueValue > 0 ? `${estimatedPassThrough.toFixed(2)} (auto)` : 'Auto from revenue'}
+            placeholder={revenueValue > 0 ? `${estimatedPassThrough.toFixed(2)} (auto)` : 'Auto from take-home'}
             value={passThroughTax}
             onChange={e => setPassThroughTax(e.target.value)}
           />
@@ -313,8 +322,8 @@ export function BookingAnalyzer({ bookings }: Props) {
       </div>
 
       <p className="analyzer__hint">
-        Revenue is what the stay earns with no tax in it (the special offer price), so revenue per night is
-        Revenue ÷ nights. Pass Through Tax is the Oahu tax Airbnb adds on top and passes to you, worked out at the
+        Take-home is what the stay earns with no tax in it (the special offer price), so revenue per night is
+        take-home ÷ nights. Pass Through Tax is the Oahu tax Airbnb adds on top and passes to you, worked out at the
         rate in the special offer section; type a figure to override it. Or build the booking from a special offer
         below and press “Use for this booking”.
       </p>
@@ -336,7 +345,7 @@ export function BookingAnalyzer({ bookings }: Props) {
           Real revenue only: pass-through tax is taken out of every past booking to match this one.
         </p>
         {!comparison || revenueValue <= 0 ? (
-          <p className="analyzer__empty">Enter dates and revenue to compare.</p>
+          <p className="analyzer__empty">Enter dates and take-home to compare.</p>
         ) : (
           <div className="analyzer__tiles">
             <div className="analyzer__tile analyzer__tile--primary">
@@ -566,12 +575,12 @@ export function BookingAnalyzer({ bookings }: Props) {
         </div>
 
         {!discount ? (
-          <p className="analyzer__empty">Enter dates and revenue to see what a discount costs you.</p>
+          <p className="analyzer__empty">Enter dates and take-home to see what a discount costs you.</p>
         ) : (
           <>
             <div className="analyzer__tiles">
               <div className="analyzer__tile">
-                <span className="analyzer__tile-label">Revenue (offer price)</span>
+                <span className="analyzer__tile-label">Take-home (offer price)</span>
                 <span className="analyzer__tile-value">{formatCurrency(discount.discounted.revenue)}</span>
                 <span className="analyzer__tile-sub">
                   Down from {formatCurrency(discount.base.revenue)}
@@ -611,7 +620,7 @@ export function BookingAnalyzer({ bookings }: Props) {
                 <thead>
                   <tr>
                     <th>Discount</th>
-                    <th>Revenue</th>
+                    <th>Take-home</th>
                     <th>Guest pays all-in</th>
                     <th>Airbnb payout</th>
                     <th>Per night</th>
@@ -642,9 +651,9 @@ export function BookingAnalyzer({ bookings }: Props) {
               </table>
             </div>
             <p className="analyzer__hint">
-              The discount comes off the revenue (the offer price), so the guest fee and pass-through taxes both
-              shrink with it. Airbnb payout = revenue + pass-through tax. In pocket = payout − taxes owed, where taxes
-              owed are {formatPercent(TAX_RATE, 3)} (GET + TAT + Oahu TAT) of the revenue, the same as the Performance
+              The discount comes off the take-home (the offer price), so the guest fee and pass-through taxes both
+              shrink with it. Airbnb payout = take-home + pass-through tax. In pocket = payout − taxes owed, where
+              taxes owed are {formatPercent(TAX_RATE, 3)} (GET + TAT + Oahu TAT) of the take-home, the same as the Performance
               tab. Cleaning and other expenses are not deducted.
             </p>
           </>
