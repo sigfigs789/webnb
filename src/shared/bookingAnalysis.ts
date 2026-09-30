@@ -303,6 +303,19 @@ export function offerFromPayout(revenue: number, passThroughTax: number, hostFee
   return Math.max(0, revenue - passThroughTax) / (1 - hostFeeRate)
 }
 
+/**
+ * The pass-through tax inside a payout. The payout is offer × (1 − host fee)
+ * plus offer × tax, so the tax is that payout's share: tax / (1 − host fee + tax).
+ */
+export function passThroughFromPayout(
+  revenue: number,
+  taxRate = TAX_RATE,
+  hostFeeRate = AIRBNB_HOST_FEE_RATE
+): number {
+  const share = 1 - hostFeeRate + taxRate
+  return share > 0 ? (revenue * taxRate) / share : 0
+}
+
 /** What the guest pays all-in for a payout: offer + guest service fee + the pass-through taxes. */
 export function guestTotalFromPayout(
   revenue: number,

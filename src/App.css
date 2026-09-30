@@ -1330,6 +1330,24 @@ td.note-cell {
   color: #718096;
 }
 
+.analyzer__field-note {
+  font-size: 0.68rem;
+  color: #a0aec0;
+}
+
+.analyzer__field-link {
+  align-self: flex-start;
+  background: none;
+  padding: 0;
+  font-size: 0.68rem;
+  color: #4f7ef8;
+}
+
+.analyzer__field-link:hover {
+  background: none;
+  text-decoration: underline;
+}
+
 .analyzer__mode {
   margin-bottom: 0.875rem;
 }

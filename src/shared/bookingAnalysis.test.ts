@@ -6,6 +6,7 @@ import {
   findGaps,
   guestTotalFromPayout,
   offerFromPayout,
+  passThroughFromPayout,
   pocketAfterTaxes,
   shiftYears,
   specialOfferFromTotal,
@@ -168,6 +169,18 @@ describe('offerFromPayout', () => {
   it('recovers the offer and guest total from a payout', () => {
     expect(offerFromPayout(5000 * 0.97 + 900, 900, 0.03)).toBeCloseTo(5000)
     expect(guestTotalFromPayout(5000 * 0.97 + 900, 900, 0.13, 0.03)).toBeCloseTo(6550)
+  })
+})
+
+describe('passThroughFromPayout', () => {
+  it('finds the tax inside a payout', () => {
+    // $5,000 offer: 4850 after the host fee plus 900 tax
+    expect(passThroughFromPayout(5750, 0.18, 0.03)).toBeCloseTo(900)
+  })
+
+  it('matches the taxes of a special offer', () => {
+    const offer = specialOfferFromTotal(5700)
+    expect(passThroughFromPayout(offer.payout)).toBeCloseTo(offer.taxes)
   })
 })
 

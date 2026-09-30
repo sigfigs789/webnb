@@ -12,6 +12,7 @@ import {
   discountScenario,
   fromDay,
   nightsOf,
+  passThroughFromPayout,
   pocketAfterTaxes,
   specialOfferFromTotal,
   toDay,
@@ -168,7 +169,6 @@ export function BookingAnalyzer({ bookings }: Props) {
 
   const hasDates = isValidRange(startDate, endDate)
   const revenueValue = parseNumber(revenue)
-  const passThroughValue = parseNumber(passThroughTax)
   const minNightsValue = Math.max(1, Math.round(parseNumber(minNights)) || 1)
   const proposal = hasDates ? { start: toDay(startDate), end: toDay(endDate) } : null
   const nights = proposal ? nightsOf(proposal) : 0
@@ -202,6 +202,9 @@ export function BookingAnalyzer({ bookings }: Props) {
   const guestFeeRate = parseNumber(guestFeePct) / 100
   const offerTaxRate = parseNumber(offerTaxPct) / 100
   const hostFeeRate = parseNumber(hostFeePct) / 100
+  // Blank pass-through tax means "work it out from the revenue" with the rates below.
+  const estimatedPassThrough = passThroughFromPayout(revenueValue, offerTaxRate, hostFeeRate)
+  const passThroughValue = passThroughTax === '' ? estimatedPassThrough : parseNumber(passThroughTax)
   const scenario = (rate: number) =>
     discountScenario(revenueValue, passThroughValue, nights, rate, guestFeeRate, hostFeeRate)
   const discount = nights > 0 && revenueValue > 0 ? scenario(discountRate) : null
@@ -218,7 +221,8 @@ export function BookingAnalyzer({ bookings }: Props) {
 
   const useOfferAsBooking = () => {
     setRevenue(offer.payout.toFixed(2))
-    setPassThroughTax(offer.taxes.toFixed(2))
+    // The estimate from the payout is exactly the offer's taxes, so leave it on auto.
+    setPassThroughTax('')
   }
 
   // The best available "what a night is worth" for pricing stranded nights.
@@ -269,10 +273,21 @@ export function BookingAnalyzer({ bookings }: Props) {
             type="number"
             min="0"
             step="any"
-            placeholder="0.00"
+            placeholder={revenueValue > 0 ? `${estimatedPassThrough.toFixed(2)} (auto)` : 'Auto from revenue'}
             value={passThroughTax}
             onChange={e => setPassThroughTax(e.target.value)}
           />
+          {passThroughTax === '' ? (
+            revenueValue > 0 && (
+              <span className="analyzer__field-note">
+                Estimated at {formatPercent(offerTaxRate, 3)} tax, {formatPercent(hostFeeRate, 0)} host fee
+              </span>
+            )
+          ) : (
+            <button type="button" className="analyzer__field-link" onClick={() => setPassThroughTax('')}>
+              Reset to estimate
+            </button>
+          )}
         </div>
         <div className="form-field">
           <label htmlFor="an-min">Minimum nights</label>
@@ -282,7 +297,8 @@ export function BookingAnalyzer({ bookings }: Props) {
 
       <p className="analyzer__hint">
         Enter it the way the Booking tab records it: Revenue is the Airbnb payout including the taxes Airbnb passes
-        through, and Pass Through Tax is that tax part. Or build it from a special offer below and press “Use for
+        through. Pass Through Tax is worked out from it using the tax and host fee rates in the special offer
+        section; type a figure to override it. Or build the booking from a special offer below and press “Use for
         this booking”.
       </p>
 
