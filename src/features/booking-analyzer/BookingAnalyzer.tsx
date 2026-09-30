@@ -60,6 +60,21 @@ function isValidRange(startDate: string, endDate: string) {
   return Boolean(startDate && endDate && startDate < endDate)
 }
 
+function percentChange(proposed: number, reference: number | null | undefined): number | null {
+  return reference == null || reference <= 0 ? null : proposed / reference - 1
+}
+
+function DeltaCell({ proposed, reference }: { proposed: number; reference: number | null | undefined }) {
+  const change = percentChange(proposed, reference)
+  if (change === null) return <td>—</td>
+  return (
+    <td className={`analyzer__delta analyzer__delta--${change >= 0 ? 'up' : 'down'}`}>
+      {change >= 0 ? '+' : ''}
+      {formatPercent(change)}
+    </td>
+  )
+}
+
 function Delta({ proposed, reference }: { proposed: number; reference: number | null | undefined }) {
   if (reference == null || reference <= 0) return null
   const change = proposed / reference - 1
@@ -221,6 +236,13 @@ export function BookingAnalyzer({ bookings }: Props) {
     // The estimate from the payout is exactly the offer's taxes, so leave it on auto.
     setPassThroughTax('')
   }
+
+  // Discounts and offers are judged against the same dates a year earlier.
+  const sameWindowRate = comparison?.sameDatesLastYear.revenuePerNight ?? null
+  const sameWindowNote =
+    sameWindowRate === null
+      ? 'no bookings on these dates last year to compare with'
+      : `vs ${formatCurrencyPrecise(sameWindowRate)} / night on the same dates last year`
 
   // The best available "what a night is worth" for pricing stranded nights.
   const referenceRate =
@@ -575,9 +597,9 @@ export function BookingAnalyzer({ bookings }: Props) {
                 <span className="analyzer__tile-label">Revenue / night</span>
                 <span className="analyzer__tile-value">
                   {formatCurrencyPrecise(discount.discounted.revenuePerNight)}{' '}
-                  <Delta proposed={discount.discounted.revenuePerNight} reference={comparison?.sameMonthsLastYear?.revenuePerNight ?? comparison?.lastYear?.revenuePerNight} />
+                  <Delta proposed={discount.discounted.revenuePerNight} reference={sameWindowRate} />
                 </span>
-                <span className="analyzer__tile-sub">After the discount, vs last year's rate for these months</span>
+                <span className="analyzer__tile-sub">After the discount, {sameWindowNote}</span>
               </div>
               <div className="analyzer__tile">
                 <span className="analyzer__tile-label">Break-even</span>
@@ -595,6 +617,7 @@ export function BookingAnalyzer({ bookings }: Props) {
                     <th>Guest pays all-in</th>
                     <th>Payout</th>
                     <th>Per night</th>
+                    <th>vs same dates last year</th>
                     <th>Taxes owed</th>
                     <th>In pocket</th>
                     <th>You give up</th>
@@ -610,6 +633,7 @@ export function BookingAnalyzer({ bookings }: Props) {
                         <td>{formatCurrency(row.discountedGuestTotal)}</td>
                         <td>{formatCurrency(row.discounted.revenue)}</td>
                         <td>{formatCurrencyPrecise(row.discounted.revenuePerNight)}</td>
+                        <DeltaCell proposed={row.discounted.revenuePerNight} reference={sameWindowRate} />
                         <td>{formatCurrency(row.discounted.taxes)}</td>
                         <td>{formatCurrency(row.discounted.pocket)}</td>
                         <td>{rate === 0 ? '—' : formatCurrency(row.pocketLoss)}</td>
@@ -683,6 +707,17 @@ export function BookingAnalyzer({ bookings }: Props) {
           </span>
         </div>
 
+        {nights > 0 ? (
+          <p className="analyzer__offer-compare">
+            {formatCurrencyPrecise(offer.offer / nights)} / night excluding tax{' '}
+            <Delta proposed={offer.offer / nights} reference={sameWindowRate} /> · {sameWindowNote}
+          </p>
+        ) : (
+          <p className="analyzer__offer-compare">
+            Enter check-in and check-out above to compare this offer's revenue per night with the same dates last year.
+          </p>
+        )}
+
         <div className="analyzer__table-wrap">
           <table className="analyzer__table analyzer__table--breakdown">
             <tbody>
@@ -724,7 +759,7 @@ export function BookingAnalyzer({ bookings }: Props) {
               </tr>
               {nights > 0 && (
                 <tr>
-                  <td>Offer per night ({formatNights(nights)})</td>
+                  <td>Revenue / night excl. tax ({formatNights(nights)})</td>
                   <td>{formatCurrencyPrecise(offer.offer / nights)}</td>
                 </tr>
               )}

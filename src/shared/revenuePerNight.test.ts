@@ -6,7 +6,7 @@ function booking(id: string, startDate: string, endDate: string, revenue: number
   return { id, name: `Booking ${id}`, revenue, passThroughTax: 0, bookingDate: startDate, startDate, endDate }
 }
 
-// Pass-through tax is guest money remitted onward, so it must not move the nightly rate
+// Pass-through tax is guest money remitted onward, not income, so it comes out of the nightly rate
 function bookingWithTax(revenue: number, passThroughTax: number): Booking {
   return { ...booking('tax', '2024-06-01', '2024-06-05', revenue), passThroughTax }
 }
@@ -23,9 +23,10 @@ describe('monthlyRevenuePerNight', () => {
     expect(points[0].revenuePerNight).toBeCloseTo(200)
   })
 
-  it('ignores pass-through tax when computing the nightly rate', () => {
+  it('leaves pass-through tax out of the nightly rate', () => {
     const points = monthlyRevenuePerNight([bookingWithTax(800, 200)])
-    expect(points[0].revenuePerNight).toBeCloseTo(200)
+    expect(points[0].revenue).toBeCloseTo(600)
+    expect(points[0].revenuePerNight).toBeCloseTo(150)
   })
 
   it('splits a booking that straddles a month boundary', () => {
@@ -88,8 +89,8 @@ describe('yearlyRevenuePerNight', () => {
     expect(points[2].revenuePerNight).toBeCloseTo(200)
   })
 
-  it('ignores pass-through tax in the yearly rollup', () => {
+  it('leaves pass-through tax out of the yearly rollup', () => {
     const points = yearlyRevenuePerNight([bookingWithTax(800, 400)])
-    expect(points[0].revenuePerNight).toBeCloseTo(200)
+    expect(points[0].revenuePerNight).toBeCloseTo(100)
   })
 })
