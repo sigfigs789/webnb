@@ -1,4 +1,5 @@
 // Made-up data for playing with the app locally without touching Supabase.
+// Kept permanently as a reference playground; fixtures.test.ts pins what it shows.
 // Revenue is the recorded Airbnb payout, pass-through tax included, just as the
 // Booking tab records it. Some bookings leave pass-through tax at 0 so the
 // booking table's estimate shows up.
