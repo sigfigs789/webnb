@@ -166,7 +166,10 @@ export interface Gap extends NightRange {
   nightsInWindow: number
   /** Too short to ever hold a minimum-length stay (after any turnover gap). */
   stranded: boolean
-  /** How many minimum-length stays can start in the window and still fit. */
+  /**
+   * How many minimum-length stays can start in the window and still fit. A stay
+   * checking in near the window end counts even if it checks out after it.
+   */
   maxStays: number
 }
 
