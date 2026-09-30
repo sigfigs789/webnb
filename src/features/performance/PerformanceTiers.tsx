@@ -12,6 +12,8 @@ import { useActualTaxes } from './useActualTaxes'
 import { useOccupancy, OccupancyEntry } from '../occupancy/useOccupancy'
 
 import { getTax } from '../../shared/taxCalculation'
+import { cellNumber, isBrokenFormula, FORMULA_HINT } from '../../shared/formula'
+import { useFormulaMemory } from '../../shared/useFormulaMemory'
 
 interface Props {
   bookings: Booking[]
@@ -233,6 +235,7 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
   const taxOriginalsRef = useRef<Record<string, number>>({})
   const [expenseDrafts, setExpenseDrafts] = useState<Record<string, Partial<Record<VariableExpenseKey, string>>>>({})
   const expenseOriginalsRef = useRef<Record<string, Partial<Record<VariableExpenseKey, number>>>>({})
+  const formulas = useFormulaMemory()
   const { excludedMonths, proratedMonths, variableOnlyMonths, toggleFlag } = usePerformanceMonthFlags()
   const data = mergePerf(bookings, expenses, actualTaxes, occupancyEntries, proratedMonths, variableOnlyMonths)
   const thisYear = new Date().getFullYear()
@@ -270,7 +273,8 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
 
   function saveVariableExpense(month: MonthPerf, field: VariableExpenseKey, inputValue: string) {
     const original = roundToCents(expenseOriginalsRef.current[month.key]?.[field] ?? month[field])
-    const val = roundToCents(Math.max(0, Number(inputValue) || 0))
+    const val = roundToCents(Math.max(0, cellNumber(inputValue)))
+    formulas.commit(`${month.key}:${field}`, inputValue)
     setExpenseDrafts(prev => {
       const next = { ...prev }
       const row = { ...(next[month.key] ?? {}) }
@@ -433,18 +437,21 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                           {VARIABLE_EXPENSE_FIELDS.map(({ key }) => (
                             <td key={key}>
                               <input
-                                className="expense-input"
+                                className={`expense-input${isBrokenFormula(expenseDrafts[d.key]?.[key] ?? '') ? ' expense-input--invalid' : ''}`}
                                 type="text"
                                 inputMode="decimal"
+                                title={FORMULA_HINT}
                                 value={expenseDrafts[d.key]?.[key] ?? amountAtRest(d[key])}
                                 onFocus={() => {
                                   expenseOriginalsRef.current[d.key] = {
                                     ...(expenseOriginalsRef.current[d.key] ?? {}),
                                     [key]: d[key],
                                   }
+                                  // Show the formula behind the amount, when there was one
+                                  const source = formulas.recall(`${d.key}:${key}`, d[key])
                                   setExpenseDrafts(prev => ({
                                     ...prev,
-                                    [d.key]: { ...(prev[d.key] ?? {}), [key]: amountWhileEditing(d[key]) },
+                                    [d.key]: { ...(prev[d.key] ?? {}), [key]: source ?? amountWhileEditing(d[key]) },
                                   }))
                                 }}
                                 onChange={e => setExpenseDrafts(prev => ({
@@ -458,18 +465,21 @@ export function PerformanceTiers({ bookings, expenses, onSetExpense }: Props) {
                           ))}
                           <td>
                             <input
-                              className="expense-input"
+                              className={`expense-input${isBrokenFormula(taxDrafts[d.key] ?? '') ? ' expense-input--invalid' : ''}`}
                               type="text"
                               inputMode="decimal"
+                              title={FORMULA_HINT}
                               value={taxDrafts[d.key] ?? amountAtRest(d.taxes)}
                               onFocus={() => {
                                 taxOriginalsRef.current[d.key] = d.taxes
-                                setTaxDrafts(prev => ({ ...prev, [d.key]: amountWhileEditing(d.taxes) }))
+                                const source = formulas.recall(`${d.key}:taxes`, d.taxes)
+                                setTaxDrafts(prev => ({ ...prev, [d.key]: source ?? amountWhileEditing(d.taxes) }))
                               }}
                               onChange={e => setTaxDrafts(prev => ({ ...prev, [d.key]: e.target.value }))}
                               onBlur={e => {
                                 const original = roundToCents(taxOriginalsRef.current[d.key] ?? d.taxes)
-                                const val = roundToCents(Math.max(0, Number(e.target.value) || 0))
+                                const val = roundToCents(Math.max(0, cellNumber(e.target.value)))
+                                formulas.commit(`${d.key}:taxes`, e.target.value)
                                 setTaxDrafts(prev => { const next = { ...prev }; delete next[d.key]; return next })
                                 if (val !== original) upsertTax(d.year, d.month, val)
                               }}

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Booking } from '../../shared/types'
+import { cellNumber, evaluateFormula, isBrokenFormula, FORMULA_HINT } from '../../shared/formula'
+import { useFormulaMemory } from '../../shared/useFormulaMemory'
 
 interface Props {
   onSubmit: (booking: Omit<Booking, 'id'>) => void
@@ -21,6 +23,7 @@ type FormValues = typeof emptyValues
 export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
   const [values, setValues] = useState<FormValues>(emptyValues)
   const [errors, setErrors] = useState<Partial<FormValues>>({})
+  const formulas = useFormulaMemory()
 
   useEffect(() => {
     if (initialValues) {
@@ -41,7 +44,7 @@ export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
   function validate(): Partial<FormValues> {
     const errs: Partial<FormValues> = {}
     if (!values.name.trim()) errs.name = 'Required'
-    if (!values.revenue || Number(values.revenue) <= 0) errs.revenue = 'Must be greater than 0'
+    if ((evaluateFormula(values.revenue) ?? 0) <= 0) errs.revenue = 'Must be greater than 0'
     if (!values.bookingDate) errs.bookingDate = 'Required'
     if (!values.startDate) errs.startDate = 'Required'
     if (!values.endDate) errs.endDate = 'Required'
@@ -59,8 +62,8 @@ export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
     }
     onSubmit({
       name: values.name.trim(),
-      revenue: Number(values.revenue),
-      passThroughTax: Number(values.passThroughTax) || 0,
+      revenue: cellNumber(values.revenue),
+      passThroughTax: cellNumber(values.passThroughTax),
       bookingDate: values.bookingDate,
       startDate: values.startDate,
       endDate: values.endDate,
@@ -96,11 +99,17 @@ export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
           <label htmlFor="revenue">Revenue ($)</label>
           <input
             id="revenue"
-            type="number"
+            className={isBrokenFormula(values.revenue) ? 'expense-input--invalid' : undefined}
+            type="text"
+            inputMode="decimal"
+            title={FORMULA_HINT}
             value={values.revenue}
             onChange={e => setField('revenue', e.target.value)}
-            min="0"
-            step="any"
+            onFocus={() => {
+              const source = formulas.recall('revenue', values.revenue)
+              if (source) setField('revenue', source)
+            }}
+            onBlur={e => setField('revenue', formulas.commit('revenue', e.target.value))}
             placeholder="0.00"
           />
           {errors.revenue && <span className="form-error">{errors.revenue}</span>}
@@ -110,11 +119,17 @@ export function BookingForm({ onSubmit, initialValues, onCancel }: Props) {
           <label htmlFor="passThroughTax">Pass Through Tax ($)</label>
           <input
             id="passThroughTax"
-            type="number"
+            className={isBrokenFormula(values.passThroughTax) ? 'expense-input--invalid' : undefined}
+            type="text"
+            inputMode="decimal"
+            title={FORMULA_HINT}
             value={values.passThroughTax}
             onChange={e => setField('passThroughTax', e.target.value)}
-            min="0"
-            step="any"
+            onFocus={() => {
+              const source = formulas.recall('passThroughTax', values.passThroughTax)
+              if (source) setField('passThroughTax', source)
+            }}
+            onBlur={e => setField('passThroughTax', formulas.commit('passThroughTax', e.target.value))}
             placeholder="0.00"
           />
         </div>

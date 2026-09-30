@@ -3,6 +3,8 @@ import { Booking } from '../../shared/types'
 import { aggregateAirbnbDays, fillMonthGaps } from '../../shared/occupancyDays'
 import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
 import { useOccupancy } from './useOccupancy'
+import { cellNumber, isBrokenFormula, FORMULA_HINT } from '../../shared/formula'
+import { useFormulaMemory } from '../../shared/useFormulaMemory'
 
 interface Props {
   bookings: Booking[]
@@ -22,6 +24,7 @@ export function OccupancyTable({ bookings }: Props) {
   const thisYear = new Date().getFullYear()
 
   const [drafts, setDrafts] = useState<Record<string, OccupancyDraft>>({})
+  const formulas = useFormulaMemory()
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(
     () => getDefaultCollapsedYears(months.map(m => m.year), thisYear)
   )
@@ -57,11 +60,24 @@ export function OccupancyTable({ bookings }: Props) {
     setDrafts(prev => ({ ...prev, [key]: { ...(prev[key] ?? zeroDraft()), [field]: value } }))
   }
 
-  function save(year: number, month: number) {
-    const draft = getDraft(year, month)
+  function focusField(year: number, month: number, field: keyof OccupancyDraft) {
+    const key = monthKey(year, month)
+    const source = formulas.recall(`${key}:${field}`, getDraft(year, month)[field])
+    if (source) setField(year, month, field, source)
+  }
+
+  // Commit a cell: a formula collapses to its result, and is remembered so the
+  // cell shows the formula again the next time it is focused.
+  function commitField(year: number, month: number, field: keyof OccupancyDraft, raw: string) {
+    const resolved = formulas.commit(`${monthKey(year, month)}:${field}`, raw)
+    if (resolved !== raw) setField(year, month, field, resolved)
+    save(year, month, { ...getDraft(year, month), [field]: resolved })
+  }
+
+  function save(year: number, month: number, draft: OccupancyDraft = getDraft(year, month)) {
     setEntry(year, month, {
-      kindredDays: Math.max(0, Math.floor(Number(draft.kindredDays) || 0)),
-      ourDays: Math.max(0, Math.floor(Number(draft.ourDays) || 0)),
+      kindredDays: Math.max(0, Math.floor(cellNumber(draft.kindredDays))),
+      ourDays: Math.max(0, Math.floor(cellNumber(draft.ourDays))),
     })
   }
 
@@ -86,8 +102,8 @@ export function OccupancyTable({ bookings }: Props) {
   const totals = months.reduce(
     (acc, m) => {
       const { kindredDays, ourDays } = getDraft(m.year, m.month)
-      const k = Number(kindredDays) || 0
-      const o = Number(ourDays) || 0
+      const k = cellNumber(kindredDays)
+      const o = cellNumber(ourDays)
       const unoccupied = Math.max(0, m.daysInMonth - m.airbnbDays - k - o)
       return {
         airbnb: acc.airbnb + m.airbnbDays,
@@ -124,8 +140,8 @@ export function OccupancyTable({ bookings }: Props) {
               const yearTotals = group.reduce(
                 (acc, m) => {
                   const { kindredDays, ourDays } = getDraft(m.year, m.month)
-                  const k = Number(kindredDays) || 0
-                  const o = Number(ourDays) || 0
+                  const k = cellNumber(kindredDays)
+                  const o = cellNumber(ourDays)
                   return {
                     airbnb: acc.airbnb + m.airbnbDays,
                     kindred: acc.kindred + k,
@@ -168,8 +184,8 @@ export function OccupancyTable({ bookings }: Props) {
                   ) : (
                     group.map(m => {
                       const { kindredDays, ourDays } = getDraft(m.year, m.month)
-                      const k = Number(kindredDays) || 0
-                      const o = Number(ourDays) || 0
+                      const k = cellNumber(kindredDays)
+                      const o = cellNumber(ourDays)
                       const unoccupied = Math.max(0, m.daysInMonth - m.airbnbDays - k - o)
                       const airbnbPct = (m.airbnbDays / m.daysInMonth) * 100
                       const totalPct = ((m.airbnbDays + k + o) / m.daysInMonth) * 100
@@ -179,22 +195,28 @@ export function OccupancyTable({ bookings }: Props) {
                           <td>{m.airbnbDays}</td>
                           <td>
                             <input
-                              className="occupancy-input"
-                              type="number"
-                              min={0}
+                              className={`occupancy-input${isBrokenFormula(kindredDays) ? ' expense-input--invalid' : ''}`}
+                              type="text"
+                              inputMode="decimal"
+                              title={FORMULA_HINT}
                               value={kindredDays}
                               onChange={e => setField(m.year, m.month, 'kindredDays', e.target.value)}
-                              onBlur={() => save(m.year, m.month)}
+                              onFocus={() => focusField(m.year, m.month, 'kindredDays')}
+                              onBlur={e => commitField(m.year, m.month, 'kindredDays', e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                             />
                           </td>
                           <td>
                             <input
-                              className="occupancy-input"
-                              type="number"
-                              min={0}
+                              className={`occupancy-input${isBrokenFormula(ourDays) ? ' expense-input--invalid' : ''}`}
+                              type="text"
+                              inputMode="decimal"
+                              title={FORMULA_HINT}
                               value={ourDays}
                               onChange={e => setField(m.year, m.month, 'ourDays', e.target.value)}
-                              onBlur={() => save(m.year, m.month)}
+                              onFocus={() => focusField(m.year, m.month, 'ourDays')}
+                              onBlur={e => commitField(m.year, m.month, 'ourDays', e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                             />
                           </td>
                           <td>{unoccupied}</td>

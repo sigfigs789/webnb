@@ -4,6 +4,8 @@ import { getFixedCosts } from '../../shared/fixedCosts'
 import { allPrincipalMonths } from '../../shared/principalGained'
 import { getExpectedVarCost, resolveExpectedForMonth, isScheduleActive, EXPECTED_VAR_COST } from '../../shared/expectedVariableCost'
 import { getDefaultCollapsedYears } from '../../shared/yearCollapse'
+import { cellNumber, isBrokenFormula, FORMULA_HINT } from '../../shared/formula'
+import { useFormulaMemory } from '../../shared/useFormulaMemory'
 
 type ExpenseKey = 'cleaning' | 'support' | 'tax' | 'misc'
 type RowDraft = Record<ExpenseKey, string>
@@ -75,6 +77,7 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
   // Months touched by an edit since their last save. Expected months have no
   // saved row until edited, so blur alone must not materialize one.
   const dirtyKeys = useRef<Set<string>>(new Set())
+  const formulas = useFormulaMemory()
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
   function fixedCostFor(key: string): number | null {
@@ -119,6 +122,19 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   )
 
+  // Swapping a cell between its formula and its result is not itself an edit.
+  function showInField(key: string, field: ExpenseKey, value: string) {
+    setDrafts(prev => ({
+      ...prev,
+      [key]: { ...(prev[key] ?? rowDraft(key)), [field]: value },
+    }))
+  }
+
+  function focusField(key: string, field: ExpenseKey) {
+    const source = formulas.recall(`${key}:${field}`, rowDraft(key)[field])
+    if (source) showInField(key, field, source)
+  }
+
   function setField(key: string, field: ExpenseKey, value: string) {
     dirtyKeys.current.add(key)
     setDrafts(prev => ({
@@ -150,15 +166,22 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
   }
 
   function fieldValue(key: string, field: ExpenseKey) {
-    const value = Number(rowDraft(key)[field])
-    return Number.isFinite(value) ? value : 0
+    return cellNumber(rowDraft(key)[field])
+  }
+
+  // Commit a cell: a formula collapses to its result, and is remembered so the
+  // cell shows the formula again the next time it is focused.
+  function commitField(key: string, field: ExpenseKey, raw: string) {
+    const resolved = formulas.commit(`${key}:${field}`, raw)
+    if (resolved !== raw) showInField(key, field, resolved)
+    save(key, { ...rowDraft(key), [field]: resolved })
   }
 
   async function handleUpdateFutureExpected() {
     const values = {
-      cleaning: Number(futureDraft.cleaning) || 0,
-      support: Number(futureDraft.support) || 0,
-      misc: Number(futureDraft.misc) || 0,
+      cleaning: cellNumber(futureDraft.cleaning),
+      support: cellNumber(futureDraft.support),
+      misc: cellNumber(futureDraft.misc),
     }
 
     setBulkSaving(true)
@@ -172,6 +195,8 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
           // Mirror the rows the bulk write actually touched (schedule start onward)
           if (isFutureExpectedMonth(year, month) && isScheduleActive(year, month)) {
             const scheduled = resolveExpectedForMonth(year, month, values)
+            // These cells were overwritten in bulk, so any formula behind them is gone
+            for (const field of ['cleaning', 'support', 'misc'] as const) formulas.forget(`${key}:${field}`)
             next[key] = {
               ...(next[key] ?? zeroDraft()),
               cleaning: String(scheduled.cleaning),
@@ -189,15 +214,14 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
     }
   }
 
-  function save(key: string) {
+  function save(key: string, draft: RowDraft = rowDraft(key)) {
     if (!dirtyKeys.current.delete(key)) return
-    const draft = rowDraft(key)
     const { year, month } = parseKey(key)
     onSubmit(year, month, {
-      cleaning: Number(draft.cleaning) || 0,
-      support: Number(draft.support) || 0,
-      tax: Number(draft.tax) || 0,
-      misc: Number(draft.misc) || 0,
+      cleaning: cellNumber(draft.cleaning),
+      support: cellNumber(draft.support),
+      tax: cellNumber(draft.tax),
+      misc: cellNumber(draft.misc),
     })
   }
 
@@ -243,12 +267,18 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
           <label key={key} className="expense-bulk-field">
             <span>{label}</span>
             <input
-              className="expense-input"
-              type="number"
-              min="0"
-              step="any"
+              className={`expense-input${isBrokenFormula(futureDraft[key]) ? ' expense-input--invalid' : ''}`}
+              type="text"
+              inputMode="decimal"
+              title={FORMULA_HINT}
               value={futureDraft[key]}
               onChange={e => setFutureField(key, e.target.value)}
+              onFocus={() => {
+                const source = formulas.recall(`bulk:${key}`, futureDraft[key])
+                if (source) setFutureField(key, source)
+              }}
+              onBlur={e => setFutureField(key, formulas.commit(`bulk:${key}`, e.target.value))}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
             />
           </label>
         ))}
@@ -333,13 +363,15 @@ export function ExpenseForm({ expenses, onSubmit, onUpdateFutureExpected }: Prop
                               {FIELDS.map(({ key: field }) => (
                                 <td key={field}>
                                   <input
-                                    className={`expense-input${expected ? ' expense-input--expected' : ''}`}
-                                    type="number"
-                                    min="0"
-                                    step="any"
+                                    className={`expense-input${expected ? ' expense-input--expected' : ''}${isBrokenFormula(draft[field]) ? ' expense-input--invalid' : ''}`}
+                                    type="text"
+                                    inputMode="decimal"
+                                    title={FORMULA_HINT}
                                     value={draft[field]}
                                     onChange={e => setField(key, field, e.target.value)}
-                                    onBlur={() => save(key)}
+                                    onFocus={() => focusField(key, field)}
+                                    onBlur={e => commitField(key, field, e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                                   />
                                 </td>
                               ))}
